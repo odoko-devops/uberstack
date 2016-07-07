@@ -52,3 +52,9 @@ auth-proxy:
     USERNAME: ${USERNAME}
     PASSWORD: ${PASSWORD}
 
+rancher-authentication-enabler:
+  image: odoko/rancher-authentication-enabler
+  environment:
+    USERNAME: ${USERNAME}
+    PASSWORD: ${PASSWORD}
+
