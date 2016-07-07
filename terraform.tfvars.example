@@ -1,0 +1,7 @@
+aws_access_key = "XXXXXXXXXXXXXXXXXXXX"
+aws_secret_key = "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+public_ssh_key = "ssh-rsa AAAA== me@example.com"
+domain = "docker.example.com"
+email = "me@example.com"
+username = "me"
+password = "my-password"

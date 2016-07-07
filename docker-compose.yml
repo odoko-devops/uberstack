@@ -1,0 +1,54 @@
+registry:
+  restart: always
+  image: odoko/registry:latest
+  ports:
+    - 443:443
+  environment:
+    DOMAIN: ${DOMAIN}
+    EMAIL: ${EMAIL}
+    USERNAME: ${USERNAME}
+    PASSWORD: ${PASSWORD}
+    REGISTRY_HTTP_TLS_CERTIFICATE: /etc/letsencrypt/live/${DOMAIN}/domain.crt
+    REGISTRY_HTTP_TLS_KEY: /etc/letsencrypt/live/${DOMAIN}/domain.key
+    REGISTRY_AUTH: htpasswd
+    REGISTRY_AUTH_HTPASSWD_PATH: /auth/htpasswd
+    REGISTRY_AUTH_HTPASSWD_REALM: Registry Realm
+  volumes:
+    - /opt/docker-registry:/var/lib/registry
+    - /etc/letsencrypt/:/etc/letsencrypt
+    - /etc/docker/auth:/auth
+
+letsencryt-cron:
+  restart: always
+  image: odoko/registry:2
+  volumes:
+    - /etc/letsencrypt:/etc/letsencrypt
+  command:
+    - cron
+
+rancher:
+  image: rancher/server
+  ports:
+    - 8080:8080
+
+jenkins:
+  image: jenkins
+  ports:
+   - 8081:8080
+  environment:
+    JENKINS_OPTS:
+  volumes:
+   - /jenkins:/var/jenkins_home
+
+auth-proxy:
+  image: odoko/auth-proxy:1.0.1
+  ports:
+    - 80:80
+  environment:
+    JENKINS_HOST: ${JENKINS_HOST}
+    JENKINS_PORT: 8081
+    RANCHER_HOST: ${JENKINS_PORT}
+    RANCHER_PORT: 8080
+    USERNAME: ${USERNAME}
+    PASSWORD: ${PASSWORD}
+
