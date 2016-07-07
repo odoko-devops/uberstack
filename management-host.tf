@@ -50,8 +50,8 @@ output "management.ip" {
 }
 
 resource "aws_security_group" "management" {
-  name = "docker-registry"
-  description = "Security group for our Private Docker Registry"
+  name = "management-tools"
+  description = "Security group for our Development Tools"
   vpc_id = "${aws_vpc.default.id}"
 
   ingress {
