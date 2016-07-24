@@ -36,13 +36,9 @@ resource "aws_instance" "management" {
 
 }
 
-resource "aws_eip" "management" {
-  vpc = true
-}
-
 resource "aws_eip_association" "management" {
   instance_id = "${aws_instance.management.id}"
-  allocation_id = "${aws_eip.management.id}"
+  allocation_id = "${var.eip_alloc}"
 }
 
 output "management.ip" {

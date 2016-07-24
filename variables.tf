@@ -46,3 +46,5 @@ variable "username" {
 variable "password" {
   default = "docker-password"
 }
+
+variable "eip_alloc" {}
