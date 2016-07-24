@@ -3,7 +3,7 @@ resource "aws_instance" "management" {
   ami = "${lookup(var.amis, var.aws_region)}"
   instance_type = "t2.small"
   subnet_id = "${aws_subnet.public.id}"
-  security_groups = ["${aws_security_group.management.id}"]
+  vpc_security_group_ids = ["${aws_security_group.management.id}"]
   key_name = "${aws_key_pair.sshkey.key_name}"
   source_dest_check = false
   associate_public_ip_address = true
@@ -14,8 +14,14 @@ resource "aws_instance" "management" {
     user = "ubuntu"
     key_file = "~/.ssh/id_rsa"
   }
+  
+  provisioner "file" {
+    source = "install-docker.sh"
+    destination = "/tmp/install-docker.sh"
+  }
+
   provisioner "remote-exec" {
-     script = "install-docker.sh"
+     inline = [ "bash /tmp/install-docker.sh" ]
   }
 
   provisioner "file" {
@@ -42,7 +48,7 @@ resource "aws_eip_association" "management" {
 }
 
 output "management.ip" {
-  value = "${aws_eip.management.public_ip}"
+  value = "${aws_instance.management.public_ip}"
 }
 
 resource "aws_security_group" "management" {
@@ -93,7 +99,7 @@ resource "aws_security_group" "management" {
   }
   
   tags { 
-    Name = "docker-registry" 
+    Name = "management" 
   }
 }
 
