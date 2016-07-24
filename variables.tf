@@ -37,7 +37,9 @@ variable "amis" {
 
 variable "public_ssh_key" {}
 
-variable "domain" {}
+variable "docker_domain" {}
+variable "jenkins_domain" {}
+variable "rancher_domain" {}
 variable "email" {}
 
 variable "username" {
@@ -48,3 +50,10 @@ variable "password" {
 }
 
 variable "eip_alloc" {}
+
+variable "rancher_access_key" {
+  default="none"
+}
+variable "rancher_secret_key" {
+  default="none"
+}
