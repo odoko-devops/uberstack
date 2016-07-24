@@ -27,7 +27,7 @@ function set_api_host() {
   "value": "http://${RANCHER}"
 }
 EOF
-  curl -s $API_URL -d @/tmp/rancher-data -H "Content-type: application/json" > /dev/null
+  curl -X PUT -s $API_URL -d @/tmp/rancher-data -H "Content-type: application/json" > /dev/null
 
   echo "API Host set."
 }
@@ -50,7 +50,7 @@ function register_docker_registry() {
   "volumeAccessMode": null
 }
 EOF
-  REGISTRY_ID=$(curl -s http://${RANCHER}/v1/projects/${RANCHER_ENV}/registry -d @/tmp/rancher-data -H "Content-type: application/json)| jq .id)
+  REGISTRY_ID=$(curl -s http://${RANCHER}/v1/projects/${RANCHER_ENV}/registry -d @/tmp/rancher-data -H "Content-type: application/json" | jq .id)
   cat > /tmp/rancher-data <<EOF
 {
   "type": "registryCredential",
