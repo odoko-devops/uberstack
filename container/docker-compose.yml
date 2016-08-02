@@ -1,15 +1,15 @@
 registry:
   restart: always
-  image: odoko/registry:latest
+  image: odoko/registry:2
   ports:
     - 443:443
   environment:
-    DOMAIN: ${DOMAIN}
+    DOCKER_HOSTNAME: ${DOCKER_HOSTNAME}
     EMAIL: ${EMAIL}
     USERNAME: ${USERNAME}
     PASSWORD: ${PASSWORD}
-    REGISTRY_HTTP_TLS_CERTIFICATE: /etc/letsencrypt/live/${DOMAIN}/domain.crt
-    REGISTRY_HTTP_TLS_KEY: /etc/letsencrypt/live/${DOMAIN}/domain.key
+    REGISTRY_HTTP_TLS_CERTIFICATE: /etc/letsencrypt/live/${DOCKER_HOSTNAME}/domain.crt
+    REGISTRY_HTTP_TLS_KEY: /etc/letsencrypt/live/${DOCKER_HOSTNAME}/domain.key
     REGISTRY_AUTH: htpasswd
     REGISTRY_AUTH_HTPASSWD_PATH: /auth/htpasswd
     REGISTRY_AUTH_HTPASSWD_REALM: Registry Realm
@@ -32,12 +32,12 @@ rancher:
     - 8080:8080
 
 jenkins:
-  image: odoko/jenkins:1.0.0
+  image: odoko/jenkins:latest
   ports:
    - 8081:8080
   environment:
     JENKINS_OPTS:
-    DOCKER_DOMAIN: ${DOMAIN}
+    DOCKER_HOSTNAME: ${DOCKER_HOSTNAME}
     USERNAME: ${USERNAME}
     PASSWORD: ${PASSWORD}
   volumes:
@@ -48,19 +48,11 @@ auth-proxy:
   ports:
     - 80:80
   environment:
-    JENKINS_HOST: ${JENKINS_HOST}
+    JENKINS_HOSTNAME: ${JENKINS_HOSTNAME}
     JENKINS_PORT: 8081
-    RANCHER_HOST: ${JENKINS_PORT}
+    RANCHER_HOSTNAME: ${RANCHER_HOSTNAME}
     RANCHER_PORT: 8080
     USERNAME: ${USERNAME}
     PASSWORD: ${PASSWORD}
 
-rancher-configurator:
-  image: odoko/rancher-configurator
-  environment:
-    RANCHER: ${RANCHER_HOST}
-    DOCKER: ${DOMAIN}
-    EMAIL: ${EMAIL}
-    USERNAME: ${USERNAME}
-    PASSWORD: ${PASSWORD}
 

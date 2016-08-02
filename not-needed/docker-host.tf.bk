@@ -1,6 +1,6 @@
 /* App servers */
 resource "aws_instance" "docker-host" {
-  count = 0
+  count = 2
   ami = "${lookup(var.amis, var.aws_region)}"
   instance_type = "t2.small"
   subnet_id = "${aws_subnet.public.id}"

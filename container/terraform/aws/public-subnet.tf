@@ -15,6 +15,10 @@ resource "aws_subnet" "public" {
   }
 }
 
+output "subnet_id" {
+  value = "${aws_subnet.public.id}"
+}
+
 /* Routing table for public subnet */
 resource "aws_route_table" "public" {
   vpc_id = "${aws_vpc.default.id}"

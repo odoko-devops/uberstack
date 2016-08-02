@@ -1,0 +1,6 @@
+#!/bin/sh
+
+echo "###############################################################################"
+echo "Building Docker image"
+
+docker build -t odoko/docker-stack container

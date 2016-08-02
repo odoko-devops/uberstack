@@ -7,8 +7,6 @@ resource "aws_vpc" "default" {
   }
 }
 
-resource "aws_key_pair" "sshkey" {
-  key_name = "sshkey"
-  public_key = "${var.public_ssh_key}"
+output "vpc_id" {
+  value = "${aws_vpc.default.id}"
 }
-

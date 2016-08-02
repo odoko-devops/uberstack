@@ -1,0 +1,29 @@
+aws:
+  management-host:
+    instance-type: t2.small
+    elastic-ip-allocation: eipalloc-xxxxxxxx
+    elastic-ip: XX.XXX.XXX.XXX
+  region: us-east-1
+  zone: b
+  ssh-keypath: ~/.ssh/id_rsa
+  access-key: XXXXXXXXXXXXXXXXXXXX
+  secret-key: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+  docker-host:
+    instance-type: t2.small
+#rancher:
+#  api-access-key: XXXXXXXXXXXXXXXXXXXX
+#  api-secret-key: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+hosts:
+  count: 1
+apps:
+  docker: 
+    name: docker.example.com
+  rancher: 
+    name: rancher.example.com
+  jenkins:
+    name: jenkins.example.com
+auth:
+  username: My Name
+  password: super-secure-password
+  email: me@example.com
+

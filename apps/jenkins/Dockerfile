@@ -13,8 +13,11 @@ RUN apt-get update && \
     apt-get install -y docker-engine && \
     gpasswd -a jenkins docker
 
+RUN mkdir /plugins && \
+    curl -s http://mirrors.jenkins-ci.org/plugins/git/latest/git.hpi > /plugins/git.hpi
+
 USER ${user}
 
-ADD /start.sh /start.sh
+#ADD /start.sh /start.sh
 
-ENTRYPOINT [ "bash", "/start.sh" ]
+#ENTRYPOINT [ "bash", "/start.sh" ]

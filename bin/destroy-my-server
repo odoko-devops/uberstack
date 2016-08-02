@@ -1,0 +1,16 @@
+#!/bin/sh
+
+echo "###############################################################################"
+echo "Destroy my management server"
+
+read -p "ARE YOU SURE? (yes/no) " ANSWER
+if [ "$ANSWER" = "yes" ]; then
+  docker run --rm --name docker-stack \
+	     -v /Users/${USER}/.docker:/odoko/.docker \
+             -v $(pwd)/config.yml:/config.yml \
+	     -v $(pwd)/state:/state \
+	     odoko/docker-stack destroy
+  rm -f state/terraform.tfstate
+else
+  echo "Okay. Doing nothing."
+fi
