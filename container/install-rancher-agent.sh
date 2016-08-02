@@ -19,7 +19,7 @@ INTERNAL_IP=$(ip add show eth0 | awk '/inet / {print $2}' | cut -d/ -f1)
 echo "Internal IP=${INTERNAL_IP}"
 RANCHER_ENV=$(curl -su "${AUTH}" http://${RANCHER_HOSTNAME}/v1/accounts | jq -r .data[0].id)
 echo "Rancher environment=${RANCHER_ENV}"
-RANCHER_URL=$(curl -su "${AUTH}" http://${RANCHER_HOSTNAME}/v1/registrationtokens?projectId=${RANCHER_ENV} | jq -r .data[0].registrationUrl)
+RANCHER_URL=$(curl -su "${AUTH}" "http://${RANCHER_HOSTNAME}/v1/projects/${RANCHER_ENV}/registrationtokens?state=active&limit=-1" | jq -r .data[0].registrationUrl)
 echo "Rancher Registration URL=${RANCHER_URL}"
 
 ###########################################
