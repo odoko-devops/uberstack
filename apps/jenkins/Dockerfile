@@ -1,4 +1,4 @@
-FROM jenkins
+FROM jenkins:2.7.1
 
 USER root
 RUN apt-get update && \
@@ -12,12 +12,9 @@ RUN apt-get update && \
     apt-get update && \
     apt-get install -y docker-engine && \
     gpasswd -a jenkins docker
+user ${user}
 
-RUN mkdir /plugins && \
-    curl -s http://mirrors.jenkins-ci.org/plugins/git/latest/git.hpi > /plugins/git.hpi
+ADD groovy/* /usr/share/jenkins/ref/init.groovy.d/
+ADD start.sh /start.sh
 
-USER ${user}
-
-#ADD /start.sh /start.sh
-
-#ENTRYPOINT [ "bash", "/start.sh" ]
+ENTRYPOINT [ "/start.sh"]
