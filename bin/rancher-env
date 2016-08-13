@@ -1,0 +1,10 @@
+#!/bin/sh
+
+HERE=$(cd `dirname $0`;pwd)
+cd $HERE/..
+
+echo export RANCHER_URL=http://$(grep " rancher:" -A1 config.yml | tail -n1 | sed "s/.*name: //")/
+echo export RANCHER_ACCESS_KEY=$(awk '{print $3}' state/state.yml | sed "s/,//")
+echo export RANCHER_SECRET_KEY=$(awk '{print $5}' state/state.yml | sed 's/\}//')
+
+
