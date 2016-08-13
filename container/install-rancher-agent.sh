@@ -7,15 +7,17 @@ USAGE="$0 <rancher host> <rancher access key> <rancher secret key> [<labels>]"
 
 RANCHER_HOSTNAME=${1?$USAGE}
 AUTH="${2?$USAGE}:${3?$USAGE}"
-LABELS=${4-''}
+INTERFACE="${4-eth0}"
+LABELS=${5-''}
 
 ###########################################
 # Install dependencies
-sudo apt-get install -y jq
+sudo wget -O /usr/local/bin/jq https://github.com/stedolan/jq/releases/download/jq-1.5/jq-linux64
+sudo chmod +x /usr/local/bin/jq
 
 ###########################################
 # Introspect required information
-INTERNAL_IP=$(ip add show eth0 | awk '/inet / {print $2}' | cut -d/ -f1)
+INTERNAL_IP=$(ip add show ${INTERFACE} | awk '/inet / {print $2}' | cut -d/ -f1)
 echo "Internal IP=${INTERNAL_IP}"
 RANCHER_ENV=$(curl -su "${AUTH}" http://${RANCHER_HOSTNAME}/v1/accounts | jq -r .data[0].id)
 echo "Rancher environment=${RANCHER_ENV}"
