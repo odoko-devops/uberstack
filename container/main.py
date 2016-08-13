@@ -293,6 +293,18 @@ def docker_compose(config):
   execute2("docker-compose up -d", env=env)
 
 
+def install_vpn(config):
+  step("Deploy Management Services")
+  env={
+    "CIDR": config["aws"]["public_cidr"],
+    "PUBLIC_IP": config["aws"]["management-host"]["elastic-ip"],
+    "USERNAME": config["auth"]["username"],
+    "DOCKER_TLS_VERIFY": "1",
+    "DOCKER_HOST": "tcp://%s:2376" % config["aws"]["management-host"]["elastic-ip"],
+    "DOCKER_CERT_PATH": "/odoko/.docker/machine/machines/management",
+    "DOCKER_MACHINE_NAME": "management"
+  }
+  execute("./install-vpn.sh", env=env)
 
 
 def management_env(config, hostname, rancher="remote"):
@@ -420,5 +432,9 @@ if __name__ == "__main__":
     rancher = sys.argv[3] if len(sys.argv)>=4 else "remote"
     host = sys.argv[2] if len(sys.argv)>=3 else "management"
     management_env(config, host, rancher)
+  elif action == "vpn":
+    install_vpn(config)
+  elif action == "foo":
+      pass
   else:
     print "Unknown action: %s" % action
