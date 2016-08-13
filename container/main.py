@@ -294,6 +294,23 @@ def docker_compose(config):
   execute2("docker-compose up -d", env=env)
 
 
+
+
+def management_env(config, hostname, rancher="remote"):
+  if hostname == "management":
+    print "export DOCKER_TLS_VERIFY=1"
+    print "export DOCKER_HOST=tcp://%s:2376" % config["aws"]["management-host"]["elastic-ip"]
+    print "export DOCKER_CERT_PATH=~/.docker/machine/machines/management"
+    print "export DOCKER_MACHINE_NAME=management"
+  if rancher == "remote":
+    print "export RANCHER_URL=http://%s" % config["apps"]["rancher"]["name"]
+    print "export RANCHER_ACCESS_KEY=%s" % config["rancher"]["api-access-key"]
+    print "export RANCHER_SECRET_KEY=%s" % config["rancher"]["api-secret-key"]
+  elif rancher == "local-rancher":
+    print "export RANCHER_URL=http://%s" % config["local"]["rancher"]["ip"]
+    print "export RANCHER_ACCESS_KEY=%s" % config["local-rancher"]["api-access-key"]
+    print "export RANCHER_SECRET_KEY=%s" % config["local-rancher"]["api-secret-key"]
+
 def set_ip(name, local, host):
   return ["docker-machine ssh %s \"echo '%s netmask %s broadcast %s' | sudo tee /etc/ip.cfg\"" %
              (name, host["ip"], local["netmask"], local["broadcast"]),
@@ -397,5 +414,10 @@ if __name__ == "__main__":
   elif action == "local-rancher-enable":
     access_key, secret_key = enable_rancher(config, sys.argv[2])
     write_state_file(state_file, access_key=access_key, secret_key=secret_key, rancher="local")
+
+  elif action == "env":
+    rancher = sys.argv[3] if len(sys.argv)>=4 else "remote"
+    host = sys.argv[2] if len(sys.argv)>=3 else "management"
+    management_env(config, host, rancher)
   else:
     print "Unknown action: %s" % action
