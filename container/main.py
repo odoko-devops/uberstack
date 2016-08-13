@@ -290,7 +290,6 @@ def docker_compose(config):
     "DOCKER_CERT_PATH": "/odoko/.docker/machine/machines/management",
     "DOCKER_MACHINE_NAME": "management"
   }
-  #get_docker_environment("management")
   execute2("docker-compose up -d", env=env)
 
 
@@ -407,7 +406,9 @@ if __name__ == "__main__":
     count = int(config["hosts"]["count"])
     print "Creating %s hosts" % count
     for i in range(0, count):
-      create_docker_host_with_docker_machine(config, count)
+      create_docker_host_with_docker_machine(config, i+1)
+      add_ubuntu_to_docker_group("docker-host%s" % i+1)
+
   elif action == "local-docker-up":
     create_local_docker_host(config)
 
