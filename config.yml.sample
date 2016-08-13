@@ -3,6 +3,7 @@ aws:
     instance-type: t2.small
     elastic-ip-allocation: eipalloc-xxxxxxxx
     elastic-ip: XX.XXX.XXX.XXX
+  public_cidr: 10.128.0.0/24
   region: us-east-1
   zone: b
   ssh-keypath: ~/.ssh/id_rsa
@@ -10,6 +11,18 @@ aws:
   secret-key: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
   docker-host:
     instance-type: t2.small
+local:
+  boot2docker-image: boot2docker.iso
+  netmask: 255.255.255.0
+  broadcast: 192.168.99.255
+  rancher:
+    disk-size: 8000
+    ram: 512
+    ip: 192.168.99.99
+  docker-host:
+    disk-size: 40000
+    ram: 2048
+    ip: 192.168.99.100
 #rancher:
 #  api-access-key: XXXXXXXXXXXXXXXXXXXX
 #  api-secret-key: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx

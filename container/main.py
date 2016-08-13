@@ -9,6 +9,7 @@ import re
 import pexpect
 import rancher_server
 
+
 PATH="/usr/local/bin:/bin:/usr/bin"
 
 def step(msg):
@@ -27,22 +28,26 @@ def read_config(config_file, state_file):
   return config
 
 
-def write_state_file(state_file, access_key=None, secret_key=None):
+def write_state_file(state_file, access_key=None, secret_key=None, rancher="remote"):
   if os.path.exists(state_file):
     state = yaml.load(open(state_file).read())
     if state is None:
       state = {}
   else:
     state = {}
+  if rancher == "remote":
+    node="rancher"
+  elif rancher == "local":
+    node="local-rancher"
   if access_key:
-    state["rancher"] = state.get("rancher", {})
-    state["rancher"]["api-access-key"] = str(access_key)
+    state[node] = state.get(node, {})
+    state[node]["api-access-key"] = str(access_key)
   if secret_key:
-    state["rancher"] = state.get("rancher", {})
-    state["rancher"]["api-secret-key"] = str(secret_key)
+    state[node] = state.get(node, {})
+    state[node]["api-secret-key"] = str(secret_key)
 
   with open(state_file, "w") as f:
-    f.write(yaml.dump(state))
+    f.write(yaml.dump(state, default_flow_style=False))
 
 
 def execute(cmd, cwd=".", env={}):
@@ -72,6 +77,31 @@ def execute2(cmd, env):
   for key, value in env.items():
     os.environ[key]=value
   os.system(cmd)
+
+
+def ssh(host, cmd):
+  execute("docker-machine ssh %s %s" % (host, cmd))
+
+
+def write_script(path, script):
+  with open(path, "w") as f:
+    print type(script)
+    if type(script) is list:
+      print >>f, "\n".join(script)
+    else:
+      print >>f, script
+  os.chmod(path, 0755)
+
+
+def ask(cmd):
+  print '''
+  Some commands cannot be executed within a container. They have been added to
+  a script, which you must now execute within your local host.
+
+  Please execute the following command:
+
+  %s
+  ''' % cmd
 
 
 def apply_terraform(config):
@@ -264,6 +294,69 @@ def docker_compose(config):
   execute2("docker-compose up -d", env=env)
 
 
+def set_ip(name, local, host):
+  return ["docker-machine ssh %s \"echo '%s netmask %s broadcast %s' | sudo tee /etc/ip.cfg\"" %
+             (name, host["ip"], local["netmask"], local["broadcast"]),
+          "docker-machine ssh %s \"echo 'sudo cat /var/run/udhcpc.eth1.pid | xargs sudo kill' | sudo tee -a /var/lib/boot2docker/bootsync.sh\"" % name,
+          "docker-machine ssh %s \"echo 'sudo ifconfig eth1 \$(cat /etc/ip.cfg) up' | sudo tee -a /var/lib/boot2docker/bootsync.sh\"" % name,
+          "docker-machine ssh %s \"sudo cat /var/run/udhcpc.eth1.pid | xargs sudo kill\"" % name,
+          "docker-machine ssh %s \"sudo ifconfig eth1 \$(cat /etc/ip.cfg) up\"" % name,
+          "docker-machine regenerate-certs -f %s" % name
+         ]
+
+def create_local_host(name, disk, memory, image):
+  return '''docker-machine create %s \
+             --driver virtualbox \
+             --virtualbox-cpu-count -1 \
+             --virtualbox-disk-size %s \
+             --virtualbox-memory %s \
+             --virtualbox-boot2docker-url=%s
+             ''' % (name, disk, memory, image)
+
+
+def create_local_rancher_host(config):
+  local = config["local"]
+  rancher = local["rancher"]
+  script = ["#!/bin/sh"]
+  script.append(create_local_host("rancher", rancher["disk-size"], rancher["ram"], local["boot2docker-image"]))
+  script.extend(set_ip("rancher", local, rancher))
+  script.append('docker-machine ssh rancher "docker run -d --restart=always -p 80:8080 rancher/server"')
+
+  write_script("/state/run", script)
+  ask("state/run")
+
+def make_local_rancher_host_links(host):
+  return ["docker-machine ssh %s \"sudo mkdir /mnt/sda1/var/lib/rancher\"" % host,
+          "docker-machine ssh %s \"echo 'sudo mkdir /var/lib/rancher' | sudo tee -a /var/lib/boot2docker/profile\"" % host,
+          "docker-machine ssh %s \"echo 'sudo mount -r /mnt/sda1/var/lib/rancher /var/lib/rancher' | sudo tee -a /var/lib/boot2docker/profile\"" % host
+         ]
+
+
+def create_local_docker_host(config):
+  local = config["local"]
+  docker = local["docker-host"]
+  create_local_host("docker", docker["disk-size"], rancher["ram"], local["boot2docker-image"])
+  set_ip("docker", local, docker)
+  make_local_rancher_host_links("docker")
+
+
+def enable_rancher(config, host):
+  rancher_host=config["local"]["rancher"]["ip"]
+  rancher_server.wait_for_rancher(rancher_host)
+  rancher_server.set_api_host(rancher_host)
+  access_key, secret_key = rancher_server.get_keys(rancher_host)
+
+  with open("install-rancher-agent.sh") as f:
+      script = f.read()
+  script = script.replace("${1?$USAGE}", rancher_host)
+  script = script.replace("${2?$USAGE}", access_key)
+  script = script.replace("${3?$USAGE}", secret_key)
+  script = script.replace("${4-eth0}", "eth1")
+  script = "cat <<'EOF' | docker-machine ssh %s\n%s\nEOF" % (host, script)
+  write_script("/state/run", script)
+  ask("state/run")
+  return access_key, secret_key
+
 
 if __name__ == "__main__":
   config_file = "/config.yml"
@@ -288,6 +381,9 @@ if __name__ == "__main__":
     access_key, secret_key = configure_rancher(config)
     write_state_file(state_file, access_key=access_key, secret_key=secret_key)
 
+  elif action == "local":
+     create_local_rancher_host(config)
+
   elif action == "docker-up":
     vpc_id, subnet_id = apply_terraform(config)
     #create_docker_host_with_rancher_cli(config)
@@ -295,5 +391,11 @@ if __name__ == "__main__":
     print "Creating %s hosts" % count
     for i in range(0, count):
       create_docker_host_with_docker_machine(config, count)
+  elif action == "local-docker-up":
+    create_local_docker_host(config)
+
+  elif action == "local-rancher-enable":
+    access_key, secret_key = enable_rancher(config, sys.argv[2])
+    write_state_file(state_file, access_key=access_key, secret_key=secret_key, rancher="local")
   else:
     print "Unknown action: %s" % action
