@@ -174,6 +174,7 @@ def create_docker_host_with_docker_machine(config, count):
   step("Create Docker Host %s" % count )
   aws = config["aws"]
   host = aws["docker-host"]
+  hostname = "docker-host%s" % count
   execute('''docker-machine create
                   --driver amazonec2 \
                   --amazonec2-access-key %s \
@@ -186,7 +187,7 @@ def create_docker_host_with_docker_machine(config, count):
                       --amazonec2-subnet-id %s \
                       --amazonec2-tags name=management-tools \
                       --amazonec2-ssh-keypath %s \
-                      docker-host%s
+                      %s
             ''' % (aws["access-key"],
                    aws["secret-key"],
                    vpc_id,
@@ -195,15 +196,20 @@ def create_docker_host_with_docker_machine(config, count):
                    aws["zone"],
                    subnet_id,
                    "/id_rsa",
-                   count))
+                   hostname))
 
+  if config["hosts"].has_key(hostname):
+      labels = ",".join(["%s=%s" % (k,v) for k,v in config["hosts"][hostname]["labels"].items()])
+  else:
+      labels = ""
   rancher = config["rancher"]
   execute("docker-machine scp install-rancher-agent.sh docker-host%s:" % count)
-  execute("docker-machine ssh docker-host%s ./install-rancher-agent.sh %s %s %s" %
-          (count,
+  execute("docker-machine ssh %s ./install-rancher-agent.sh %s %s %s eth0 '%s'" %
+          (hostname,
            config["apps"]["rancher"]["name"],
            rancher["api-access-key"],
-           rancher["api-secret-key"]))
+           rancher["api-secret-key"],
+           labels))
 
 
 def create_docker_host_with_rancher_cli(config):
@@ -254,7 +260,7 @@ def docker_machine_destroy(host):
 
 
 def add_ubuntu_to_docker_group(host):
-  step("Add ubuntu user to docker unix group on host %s")
+  step("Add ubuntu user to docker unix group on host %s" % host)
   execute('docker-machine ssh %s "sudo gpasswd -a ubuntu docker"' % host)
 
 
@@ -419,7 +425,7 @@ if __name__ == "__main__":
     print "Creating %s hosts" % count
     for i in range(0, count):
       create_docker_host_with_docker_machine(config, i+1)
-      add_ubuntu_to_docker_group("docker-host%s" % i+1)
+      add_ubuntu_to_docker_group("docker-host%s" % (i+1))
 
   elif action == "local-docker-up":
     create_local_docker_host(config)
@@ -434,6 +440,12 @@ if __name__ == "__main__":
     management_env(config, host, rancher)
   elif action == "vpn":
     install_vpn(config)
+  elif action == "go":
+    args = ["run", "./main.go"]
+    args.extend(sys.argv[2:])
+    print "Calling go with args %s" % args
+    #os.execvp("go", args)
+    os.system("go run main.go")
   elif action == "foo":
       pass
   else:
