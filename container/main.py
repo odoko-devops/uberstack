@@ -185,7 +185,6 @@ def create_docker_host_with_docker_machine(config, count):
                       --amazonec2-region %s \
                       --amazonec2-zone %s \
                       --amazonec2-subnet-id %s \
-                      --amazonec2-tags name=management-tools \
                       --amazonec2-ssh-keypath %s \
                       %s
             ''' % (aws["access-key"],
@@ -203,8 +202,8 @@ def create_docker_host_with_docker_machine(config, count):
   else:
       labels = ""
   rancher = config["rancher"]
-  execute("docker-machine scp install-rancher-agent.sh docker-host%s:" % count)
-  execute("docker-machine ssh %s ./install-rancher-agent.sh %s %s %s eth0 '%s'" %
+  execute("docker-machine scp golibs/bin/rancheragent docker-host%s:" % count)
+  execute("docker-machine ssh %s ./rancheragent -interface eth0 -rancher=%s -access_key=%s -secret_key=%s -labels=%s" %
           (hostname,
            config["apps"]["rancher"]["name"],
            rancher["api-access-key"],
