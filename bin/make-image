@@ -3,4 +3,4 @@
 echo "###############################################################################"
 echo "Building Docker image"
 
-docker build -t odoko/docker-stack container
+docker build -t odoko/docker-stack .
