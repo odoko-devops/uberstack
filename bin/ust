@@ -1,0 +1,13 @@
+#!/bin/sh
+
+docker run --rm \
+           --name docker-stack \
+	   -v $(pwd)/config.yml:/config.yml \
+	   -v $(pwd)/state:/state \
+	   -v /Users/${USER}/.docker:/odoko/.docker \
+	   -v $UBER_HOME:/uberstack \
+	   -e UBER_HOME=/uberstack \
+	   -e RANCHER_URL=http://rancher.odoko.org \
+	   -p 8000:8000 \
+	   --entrypoint "uberstack" \
+	   odoko/docker-stack $*
