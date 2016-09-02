@@ -8,24 +8,26 @@ import (
 	"installer/providers/defaultProvider"
 )
 
-func GetProvider(config model.Config, name string) model.Provider {
-	provider := model.Provider{}
+func GetProvider(config model.Config, state model.State, name string) model.Provider {
+
+	var provider model.Provider
+
 	switch name {
-	case "amazonaws":
+	case "amazonec2":
 		provider = amazonec2.Amazonec2{}
 	case "virtualbox":
 		provider = virtualbox.VirtualBox{}
 	default:
-		log.Panic("Unknown provider: %s", name)
+		log.Panic("Unknown provider: ", name)
 	}
 	providerConfig := model.ProviderConfig{}
-	for i := range config.Provider {
-		if config.Provider[i].Name == name {
-			providerConfig = config.Provider[i]
+	for i := range config.Providers {
+		if config.Providers[i].Name == name {
+			providerConfig = config.Providers[i]
+			break
 		}
 	}
-
-	provider.Configure(config, providerConfig)
+	provider, _ = provider.Configure(config, state, providerConfig)
 	return provider
 }
 
@@ -35,16 +37,16 @@ func GetHost(config model.Config, name string) model.HostConfig {
 			return config.Hosts[i]
 		}
 	}
-	return nil
+	return model.HostConfig{}
 }
 
-func GetHostProvider(config model.Config, hostConfig model.HostConfig) model.Provider {
-	return GetProvider(config, hostConfig.Provider)
+func GetHostProvider(config model.Config, state model.State, hostConfig model.HostConfig) model.Provider {
+	return GetProvider(config, state, hostConfig.Provider)
 }
 
 func CreateHost(config model.Config, state model.State, provider model.Provider, hostConfig model.HostConfig) {
 	defaultProvider := defaultProvider.DefaultProvider{}
-	provider.HostUp(hostConfig)
+	provider.HostUp(hostConfig, state)
 
 	defaultProvider.AddUbuntuToDockerGroup(hostConfig)
 	defaultProvider.RegenerateCerts(hostConfig)
@@ -53,8 +55,8 @@ func CreateHost(config model.Config, state model.State, provider model.Provider,
 
 }
 
-func DestroyHost(config model.Config, provider model.Provider, host model.HostConfig) {
-	completed := provider.HostDestroy(host)
+func DestroyHost(config model.Config, state model.State, provider model.Provider, host model.HostConfig) {
+	completed, _ := provider.HostDestroy(host, state)
 	if !completed {
 		defaultProvider := defaultProvider.DefaultProvider{}
 		defaultProvider.HostDestroy(host)

@@ -42,8 +42,9 @@ WORKDIR /odoko
 
 RUN go get gopkg.in/yaml.v2
 ADD /src /odoko/golibs/src/
-RUN go install uberstack rancheragent installer
+RUN go install uberstack rancheragent installer && \
+    mv /odoko/golibs/bin/* /usr/local/bin/
+
 ADD /container /odoko
 
-ENTRYPOINT [ "python", "-u", "main.py"]
-CMD ["up"]
+ENTRYPOINT ["installer"]

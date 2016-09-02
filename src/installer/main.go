@@ -2,11 +2,12 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"flag"
-	"path/filepath"
 	"utils"
 	"installer/model"
+	"log"
+	"gopkg.in/yaml.v2"
+	"io/ioutil"
 )
 
 const path = "/usr/local/bin:/bin:/usr/bin"
@@ -30,14 +31,16 @@ func processProvider(config model.Config, state model.State, args []string) {
 
 	switch action {
 	case "up":
-		provider := GetProvider(config, providerName)
+		provider := GetProvider(config, state, providerName)
 		provider.InfrastructureUp()
 	case "destroy":
-		provider := GetProvider(config, providerName)
+		provider := GetProvider(config, state, providerName)
 		provider.InfrastructureDestroy()
 	case "env":
-		provider := GetProvider(config, providerName)
+		provider := GetProvider(config, state, providerName)
 		GetProviderEnvironment(config, provider)
+	default:
+		log.Printf("Unknown action: %s\n", action)
 	}
 }
 
@@ -45,13 +48,13 @@ func processHost(config model.Config, state model.State, args []string) {
 	action := args[0]
 	hostName := args[1]
 	hostConfig := GetHost(config, hostName)
-	provider := GetHostProvider(config, hostConfig)
+	provider := GetHostProvider(config, state, hostConfig)
 
 	switch action {
 	case "up":
 		CreateHost(config, state, provider, hostConfig)
 	case "destroy":
-		DestroyHost(config, provider, hostConfig)
+		DestroyHost(config, state, provider, hostConfig)
 	case "env":
 		GetHostEnvironment(config, hostConfig)
 	}
@@ -62,23 +65,20 @@ func main() {
 	config := model.Config{}
 	state := model.State{}
 
-        utils.ReadYaml(config_file, &config)
+	bytes, err := ioutil.ReadFile(config_file)
+	utils.Check(err)
+	err = yaml.Unmarshal(bytes, &config)
+	utils.Check(err)
 	utils.ReadYaml(state_file, &state)
 
-	uber_home := os.Getenv("UBER_HOME")
-	if uber_home == "" {
-		dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
-		utils.Check(err)
-		uber_home = dir
-	}
-
-	rancher_url := os.Getenv("RANCHER_URL")
-	fmt.Printf("Using UBER_HOME=%v\n", uber_home)
-	fmt.Printf("Using RANCHER_URL=%v\n", rancher_url)
+	fmt.Println("AUTHENTICATION")
+	fmt.Println(config.Authentication)
+	fmt.Println("HOSTS")
+	fmt.Println(config.Hosts)
 
 	flag.Parse()
 
-	group := flag.Arg(1)
+	group := flag.Arg(0)
 	switch group {
 	case "provider":
 		processProvider(config, state, flag.Args()[1:])

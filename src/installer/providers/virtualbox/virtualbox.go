@@ -1,8 +1,32 @@
 package virtualbox
 
+import "installer/model"
+
 type VirtualBox struct {
 
 }
+
+func (v VirtualBox) Configure(config model.Config, state model.State, provider model.ProviderConfig) (model.Provider, error) {
+	return nil, nil
+}
+func (v VirtualBox) WriteState(config model.Config, stateFile string) error {
+	return nil
+}
+
+func (v VirtualBox) InfrastructureUp() error {
+	return nil
+}
+func (v VirtualBox) InfrastructureDestroy() error {
+	return nil
+}
+func (v VirtualBox) HostUp(host model.HostConfig, state model.State) error {
+	return nil
+}
+
+func (v VirtualBox) HostDestroy(host model.HostConfig, state model.State) (bool, error) {
+	return false, nil
+}
+
 /*
 def create_local_host(name, disk, memory, image):
   return '''docker-machine create %s \

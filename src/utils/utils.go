@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"io/ioutil"
 	"gopkg.in/yaml.v2"
+	"strings"
 )
 
 
@@ -92,7 +93,7 @@ func ExecuteAndRetrieve(command string, env Environment, dir string) string {
 
 	output, err := cmd.Output()
 	Check(err)
-	return string(output)
+	return strings.TrimRight(string(output), "\n")
 }
 
 
@@ -118,7 +119,7 @@ func Ask(cmd string) {
   %s\n`, cmd)
 }
 
-func ReadYaml(path string, data *interface{}) {
+func ReadYaml(path string, data interface{}) {
 	bytes, err := ioutil.ReadFile(path)
 	Check(err)
 	err = yaml.Unmarshal(bytes, &data)

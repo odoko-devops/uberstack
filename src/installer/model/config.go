@@ -1,8 +1,8 @@
 package model
 
 type Config struct {
-	Provider []ProviderConfig
-	Authentication map[string]RealmConfig
+	Providers []ProviderConfig
+	Authentication []RealmConfig
 	Hosts []HostConfig
 }
 
@@ -26,8 +26,13 @@ type User struct {
 type HostConfig struct {
 	Name string
 	Provider string
-	ProviderConfig map[string]string
+	ProviderConfig map[string]string `yaml: "provider-config"`
 	RancherAgent bool
-	Apps []map[string]string
+	Apps []AppConfig
 	Labels map[string] string
+}
+
+type AppConfig struct {
+	Name string
+	Config map[string]string
 }
