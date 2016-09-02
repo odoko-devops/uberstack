@@ -1,3 +1,23 @@
+package apps
+
+func installVPN() (bool, error) {
+	/*
+	log.Println("Deploy Management Services")
+	env := utils.Environment{
+		"CIDR": aws.cidr,
+		"PUBLIC_IP": aws.hosts["management"].elasticIp,
+		"USERNAME": aws.username,
+		"DOCKER_TLS_VERIFY": "1",
+		"DOCKER_HOST": "tcp://%s:2376" % aws.elasticIp,
+		"DOCKER_CERT_PATH": "/odoko/.docker/machine/machines/management",
+		"DOCKER_MACHINE_NAME": "management",
+	}
+	utils.Execute("./install-vpn.sh", env, "")
+	*/
+	return false, nil
+}
+
+var script = `
 #!/bin/sh
 
 echo CIDR=${CIDR}
@@ -17,3 +37,4 @@ echo "Build client"
 docker run --volumes-from ovpn-data --rm -it gosuri/openvpn easyrsa build-client-full "${USERNAME}" nopass
 echo "Download client"
 docker run --volumes-from ovpn-data --rm     gosuri/openvpn ovpn_getclient "\${USERNAME}" > /state/${USERNAME}.ovpn
+`

@@ -1,3 +1,6 @@
+package apps
+
+var DockerCompose = `
 registry:
   restart: always
   image: odoko/registry:2
@@ -25,34 +28,4 @@ letsencryt-cron:
     - /etc/letsencrypt:/etc/letsencrypt
   command:
     - cron
-
-rancher:
-  image: rancher/server
-  ports:
-    - 8080:8080
-
-jenkins:
-  image: odoko/jenkins:2.7.1-odoko01
-  ports:
-   - 8081:8080
-  environment:
-    JENKINS_OPTS:
-    DOCKER_HOSTNAME: ${DOCKER_HOSTNAME}
-    USERNAME: ${USERNAME}
-    PASSWORD: ${PASSWORD}
-    PLUGINS: git 
-  volumes:
-   - /jenkins:/var/jenkins_home
-   - /var/run/docker.sock:/var/run/docker.sock
-
-auth-proxy:
-  image: odoko/auth-proxy:1.0.1
-  ports:
-    - 80:80
-  environment:
-    JENKINS_HOSTNAME: ${JENKINS_HOSTNAME}
-    JENKINS_PORT: 8081
-    RANCHER_HOSTNAME: ${RANCHER_HOSTNAME}
-    RANCHER_PORT: 8080
-
-
+`

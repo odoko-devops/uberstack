@@ -2,7 +2,6 @@ package main
 
 import (
     "io/ioutil"
-    "os/exec"
     "os"
     "fmt"
     "log"
@@ -22,12 +21,8 @@ type uberstack_type struct {
   Stacks []string
   Uberstacks []string
   Required []string
-  Environments map[string]environment_type
+  Environments map[string]utils.Environment
 }
-
-type environment_type map[string]string
-
-type environment_parameters_type map[string]string
 
 type rancher_state struct {
   LocalRancher struct  {
@@ -107,22 +102,16 @@ func ls(uber_home string) {
 /***********************************************************************
  * Build a suitable environment for execution
  */
-func get_parameters_for(uberstack uberstack_type, env string, state_file string) []string {
+func get_parameters_for(uberstack uberstack_type, env string, state_file string) utils.Environment {
   params := get_parameters_from_environment_and_uberstack(uberstack, env)
   add_parameters_from_state(env, state_file, &params)
   check_required(uberstack, params)
-  param_array := make([]string, len(params))
-  i:=0
-  for k, v := range params {
-    param_array[i] = k + "=" + v
-    i++
-  }
-  return param_array
+  return params
 }
 
-func get_parameters_from_environment_and_uberstack(uberstack uberstack_type, env string) environment_parameters_type {
+func get_parameters_from_environment_and_uberstack(uberstack uberstack_type, env string) utils.Environment {
   environ := os.Environ()
-  params := environment_parameters_type{}
+  params := utils.Environment{}
 
   for _, v := range environ {
     s := strings.SplitN(v, "=", 2)
@@ -138,7 +127,7 @@ func get_parameters_from_environment_and_uberstack(uberstack uberstack_type, env
   return params
 }
 
-func add_parameters_from_state(env string, state_file string, params *environment_parameters_type) {
+func add_parameters_from_state(env string, state_file string, params *utils.Environment) {
   bytes, err := ioutil.ReadFile(state_file)
   utils.Check(err)
   state := rancher_state{}
@@ -157,7 +146,7 @@ func add_parameters_from_state(env string, state_file string, params *environmen
 /***********************************************************************
  * Check for required variables
  */
-func check_required(uberstack uberstack_type, params environment_parameters_type) {
+func check_required(uberstack uberstack_type, params utils.Environment) {
 
   for i := range uberstack.Required {
     required := uberstack.Required[i]
@@ -199,10 +188,8 @@ func process_uberstack(uber_home string, uberstack uberstack_type, env string, a
                         --project-name %s \
                         %s -d`,
                         uber_home, stack, uber_home, stack, project, action)
-      cmd := exec.Command("bash", "-c", command)
-      cmd.Env = get_parameters_for(uberstack, env, "/state/state.yml")
-      //fmt.Println(command)
-      utils.Execute(cmd)
+      env := get_parameters_for(uberstack, env, "/state/state.yml")
+      utils.Execute(command, env, "")
     }
 }
 

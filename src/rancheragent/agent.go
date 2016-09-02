@@ -1,17 +1,15 @@
 package main
 
 import (
-    "fmt"
-    "flag"
-    "encoding/json"
+        "fmt"
+        "flag"
+        "encoding/json"
         "net"
         "net/http"
         "time"
         "utils"
         "log"
-//        "strings"
         "strings"
-        "os/exec"
 )
 
 const agent_version = "v1.0.2"
@@ -110,8 +108,7 @@ func installRancherAgent(ip_address, labels, rancher_url string) {
                 agent_version,
                 rancher_url)
         log.Println(command)
-        cmd := exec.Command("bash", "-c", command)
-        utils.Execute(cmd)
+        utils.Execute(command, nil, "")
 }
 
 func main() {
