@@ -30,21 +30,8 @@ RUN apt-get update && \
     mv /tmp/rancher-compose-${RANCHER_COMPOSE_VERSION}/rancher-compose /usr/local/bin && \
     mkdir /odoko
 
-RUN cd /tmp && \
-    curl -O https://storage.googleapis.com/golang/go1.6.linux-amd64.tar.gz && \
-    tar -xzf /tmp/go1.6.linux-amd64.tar.gz && \
-    mv /tmp/go /usr/local
-
-ENV GOPATH=/odoko/golibs
-ENV PATH=$PATH:/usr/local/go/bin:$GOPATH/bin
-
 WORKDIR /odoko
-
-RUN go get gopkg.in/yaml.v2
-ADD /src /odoko/golibs/src/
-RUN go install uberstack rancheragent installer && \
-    mv /odoko/golibs/bin/* /usr/local/bin/
-
 ADD /container /odoko
+ADD build/* /usr/local/bin/
 
 ENTRYPOINT ["installer"]

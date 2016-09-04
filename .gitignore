@@ -5,3 +5,4 @@ terraform.tfvars
 /state/*
 !/state/dummy.txt
 /.idea
+/build
