@@ -37,7 +37,9 @@ func CreateHost(config model.Config, state *model.State, provider model.Provider
 	defaultProvider.RegenerateCerts(hostConfig)
 	defaultProvider.UploadSelf(hostConfig)
 	defaultProvider.StartApps(config, state, hostConfig)
-	defaultProvider.StartRancherAgent(config, state, providerConfig, hostConfig)
+	if hostConfig.RancherAgent {
+		defaultProvider.StartRancherAgent(config, state, providerConfig, hostConfig)
+	}
 }
 
 func DestroyHost(config model.Config, state *model.State, provider model.Provider, host model.HostConfig) {
