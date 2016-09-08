@@ -4,13 +4,13 @@ RUN apt-get update && \
     apt-get install -y curl git && \
     mkdir /odoko && \
     cd /usr/local && \
-    curl https://storage.googleapis.com/golang/go1.6.linux-amd64.tar.gz | tar -xz 
+    curl https://storage.googleapis.com/golang/go1.7.linux-amd64.tar.gz | tar -xz 
 
 ENV GOPATH=/odoko/golibs
 ENV PATH=$PATH:/usr/local/go/bin:$GOPATH/bin
 
 WORKDIR /odoko
 ADD build.sh /odoko
-RUN go get gopkg.in/yaml.v2 github.com/rancher/go-rancher/client
+RUN go get gopkg.in/yaml.v2 github.com/rancher/go-rancher/client github.com/kr/pty
 
 ENTRYPOINT ["./build.sh"]

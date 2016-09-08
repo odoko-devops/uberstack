@@ -8,6 +8,7 @@ import (
         "time"
         "utils"
         "log"
+	"io/ioutil"
 )
 
 const agent_version = "v1.0.2"
@@ -41,9 +42,10 @@ type rancherEnvironmentResponse struct {
 }
 
 func identifyRancherEnvironment(rancherHostname, accessKey, secretKey string) string {
+        rancherEnvUrl := fmt.Sprintf("http://%s/v1/accounts", rancherHostname)
+        log.Printf("Identifying Rancher environment ID via %s", rancherEnvUrl)
+        client := &http.Client{}
         for {
-                rancherEnvUrl := fmt.Sprintf("http://%s/v1/accounts", rancherHostname)
-                client := &http.Client{}
                 req, _ := http.NewRequest("GET", rancherEnvUrl, nil)
                 req.SetBasicAuth(accessKey, secretKey)
                 res, err := client.Do(req)
@@ -58,6 +60,13 @@ func identifyRancherEnvironment(rancherHostname, accessKey, secretKey string) st
                                 return env.Id
                         }
                 }
+		log.Println(err)
+		log.Println(body)
+
+		res, err = client.Do(req)
+		byteData, err := ioutil.ReadAll(res.Body)
+                log.Println(string(byteData))
+
                 log.Println("Environment not found, waiting")
                 time.Sleep(5 * time.Second)
         }
@@ -69,10 +78,11 @@ type registrationResponse struct {
 }
 
 func identifyRegistrationUrl(rancherHostname, accessKey, secretKey, rancherEnvironment string) string {
+        rancherTokensUrl := fmt.Sprintf("http://%s/v1/projects/%s/registrationtokens?state=active&limit=-1",
+               rancherHostname, rancherEnvironment)
+        log.Printf("Seeking registration URL with %s\n", rancherTokensUrl)
+        client := &http.Client{}
         for {
-                rancherTokensUrl := fmt.Sprintf("http://%s/v1/projects/%s/registrationtokens?state=active&limit=-1",
-                       rancherHostname, rancherEnvironment)
-                client := &http.Client{}
                 req, err := http.NewRequest("GET", rancherTokensUrl, nil)
                 utils.Check(err)
                 req.SetBasicAuth(accessKey, secretKey)
@@ -81,14 +91,15 @@ func identifyRegistrationUrl(rancherHostname, accessKey, secretKey, rancherEnvir
                 body := registrationResponse{}
                 json.NewDecoder(res.Body).Decode(&body)
 
-                registrationUrl := body.Data[0].RegistrationUrl
+		if len(body.Data)>0 {
+			registrationUrl := body.Data[0].RegistrationUrl
 
-                if registrationUrl != "" {
-                        return registrationUrl
-                }
-
+			if registrationUrl != "" {
+				return registrationUrl
+			}
+		}
                 log.Println("Registration URL not found, waiting")
-                time.Sleep(5 * time.Millisecond)
+                time.Sleep(5 * time.Second)
         }
 }
 
@@ -107,13 +118,15 @@ func installRancherAgent(ip_address, labels, rancher_url string) {
                 rancher_url)
         log.Println(command)
         utils.Execute(command, nil, "")
+	log.Println("Rancher agent installed")
 }
 
 func RancherInstallAgent(rancherHostname, accessKey, secretKey, networkInterface, labels string) {
         ipAddress := identifyIpAddress(networkInterface)
-        log.Println("IP address: ", ipAddress)
+        log.Printf("IP address: %s\n", ipAddress)
         rancherEnvironment := identifyRancherEnvironment(rancherHostname, accessKey, secretKey)
-        log.Println("Environment:", rancherEnvironment)
+        log.Printf("Environment: %s\n", rancherEnvironment)
         registrationUrl := identifyRegistrationUrl(rancherHostname, accessKey, secretKey, rancherEnvironment)
+	log.Printf("Registration url: %s\n", registrationUrl)
         installRancherAgent(ipAddress, labels, registrationUrl)
 }

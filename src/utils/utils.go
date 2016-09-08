@@ -7,8 +7,10 @@ import (
 	"bufio"
 	"os/exec"
 	"io/ioutil"
-	"gopkg.in/yaml.v2"
 	"strings"
+	"github.com/kr/pty"
+	"time"
+	"os"
 )
 
 
@@ -96,6 +98,36 @@ func ExecuteAndRetrieve(command string, env Environment, dir string) string {
 	return strings.TrimRight(string(output), "\n")
 }
 
+/***********************************************************************
+ * Execute a command on a remote Docker host
+ */
+func ExecuteRemote(host, cmd string, env Environment, dir string) {
+	command := fmt.Sprintf(`docker-machine -s /state/machine ssh %s %s`, host, cmd)
+	Execute(command, env, dir)
+}
+
+func sendToPty(input string, pty *os.File) {
+	time.Sleep(5 * time.Second)
+
+	pty.Write([]byte(input+"\n"))
+}
+
+func ExecuteWithInput(command, input string, env Environment, dir string) {
+	cmd := exec.Command("bash", "-c", command)
+
+	cmd.Env = prepareEnvironment(env)
+
+	if dir != "" {
+		cmd.Dir = dir
+	}
+
+	f, err := pty.Start(cmd)
+	Check(err)
+
+	go sendToPty(input, f)
+	go io.Copy(os.Stdout, f)
+	cmd.Wait()
+}
 
 /***********************************************************************
  * Write commands to a script file for manual execution
@@ -117,11 +149,4 @@ func Ask(cmd string) {
   Please execute the following command:
 
   %s\n`, cmd)
-}
-
-func ReadYaml(path string, data interface{}) {
-	bytes, err := ioutil.ReadFile(path)
-	Check(err)
-	err = yaml.Unmarshal(bytes, &data)
-	Check(err)
 }

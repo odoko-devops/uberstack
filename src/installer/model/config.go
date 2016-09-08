@@ -32,14 +32,15 @@ type User struct {
 type HostConfig struct {
 	Name string
 	Provider string
+	RancherInterface string `yaml:"rancher-interface"`
 	Config map[string]string
-	RancherAgent bool
+	RancherAgent bool `yaml:"rancher-agent"`
 	Apps []AppConfig
 	Labels map[string] string
 }
 
 type AppConfig struct {
-	Name string
+	Type string
 	Config map[string]string
 }
 
@@ -62,7 +63,7 @@ func GetProviderConfig(config Config, providerName string) ProviderConfig {
 }
 
 func GetProviderConfigForHost(config Config, host HostConfig) ProviderConfig {
-	return GetProviderConfig(config, host.Name)
+	return GetProviderConfig(config, host.Provider)
 }
 
 func GetHostConfig(config Config, name string) HostConfig {
@@ -74,3 +75,20 @@ func GetHostConfig(config Config, name string) HostConfig {
 	return HostConfig{}
 }
 
+func GetAuthRealm(config Config, realmName string) RealmConfig {
+	for _, realm := range config.Authentication {
+		if realm.Name == realmName {
+			return realm
+		}
+	}
+	return RealmConfig{}
+}
+
+func GetHostState(state *State, name string) HostState {
+	hostState := state.HostState[name]
+	if hostState == nil {
+		hostState = make(map[string]string)
+		state.HostState[name] = hostState
+	}
+	return hostState
+}

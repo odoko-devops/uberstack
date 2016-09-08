@@ -1,30 +1,35 @@
 package apps
 
 import (
-	"log"
 	"utils"
 	"fmt"
 	"installer/model"
 )
 
-func create_jenkins_mount_point(hostConfig model.HostConfig) {
-	log.Println("Create Mount Point for Jenkins")
-	command := fmt.Sprintf("docker-machine ssh %s \"sudo mkdir /jenkins ; sudo chown 1000 /jenkins\"", hostConfig.Name)
-	utils.Execute(command, nil, "")
-}
+func Jenkins_Install(config model.Config, hostConfig model.HostConfig, app model.AppConfig) error {
+	dockerHost := app.Config["docker-host"]
+	authRealm := model.GetAuthRealm(config, app.Config["auth-realm"])
+	username := authRealm.Users[0].Username
+	password := authRealm.Users[0].Password
 
-var dockerCompose = `
-jenkins:
-  image: odoko/jenkins:2.7.1-odoko01
-  ports:
-   - 8081:8080
-  environment:
-    JENKINS_OPTS:
-    DOCKER_HOSTNAME: ${DOCKER_HOSTNAME}
-    USERNAME: ${USERNAME}
-    PASSWORD: ${PASSWORD}
-    PLUGINS: git
-  volumes:
-   - /jenkins:/var/jenkins_home
-   - /var/run/docker.sock:/var/run/docker.sock
-`
+	command := "sudo mkdir /jenkins"
+	utils.ExecuteRemote(hostConfig.Name, command, nil, "")
+
+	command = "sudo chown 1000 /jenkins"
+	utils.ExecuteRemote(hostConfig.Name, command, nil, "")
+
+	command = fmt.Sprintf(`docker run -d -p 8081:8080 \
+					-e JENKINS_OPTS= \
+					-e DOCKER_HOSTNAME=%s \
+					-e USERNAME=%s \
+					-e PASSWORD=%s \
+					-e PLUGINS=git \
+					-v /jenkins:/var/jenkins_home \
+					-v /var/run/docker.sock:/var/run/docker.sock \
+					odoko/jenkins:2.7.1-odoko01`,
+					dockerHost,
+					username,
+					password)
+	utils.ExecuteRemote(hostConfig.Name, command, nil, "")
+	return nil
+}

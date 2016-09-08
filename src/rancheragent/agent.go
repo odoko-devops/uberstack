@@ -90,7 +90,7 @@ func identifyRegistrationUrl(rancherHostname, accessKey, secretKey, rancherEnvir
                 }
 
                 log.Println("Registration URL not found, waiting")
-                time.Sleep(5 * time.Millisecond)
+                time.Sleep(5 * time.Second)
         }
 }
 

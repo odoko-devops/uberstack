@@ -29,7 +29,6 @@ type Amazonec2 struct {
 type Amazonec2Host struct {
 	host          model.HostConfig
 	instanceType  string
-	elasticIp     string
 	eipAlloc      string
 	securityGroup string
 
@@ -65,7 +64,6 @@ func (aws *Amazonec2) Configure(config model.Config, state *model.State, provide
 			awsHost := Amazonec2Host{}
 			awsHost.host = host
 			awsHost.instanceType = host.Config["instance-type"]
-			awsHost.elasticIp = host.Config["elastic-ip"]
 			awsHost.eipAlloc = host.Config["elastic-ip-allocation"]
 			awsHost.securityGroup = host.Config["security-group"]
 
@@ -118,9 +116,13 @@ func (aws *Amazonec2) HostUp(hostConfig model.HostConfig, state *model.State) er
 	awsHost := aws.hosts[hostConfig.Name]
 	aws.createHost(awsHost)
 	awsHost.instanceId = aws.getInstanceId(awsHost)
-	aws.makeElasticIPAssociation(awsHost)
+	aws.makeElasticIPAssociation(state, awsHost)
 
 	hostState := aws.state.HostState[hostConfig.Name]
+	if hostState == nil {
+		hostState = make(map[string]string)
+		aws.state.HostState[hostConfig.Name] = hostState
+	}
 	hostState["instanceId"] = awsHost.instanceId
 	return nil
 }
@@ -129,7 +131,8 @@ func (aws *Amazonec2) HostDestroy(host model.HostConfig, state *model.State) (bo
 	return false, nil
 }
 
-func (aws *Amazonec2) makeElasticIPAssociation(awsHost Amazonec2Host) error {
+func (aws *Amazonec2) makeElasticIPAssociation(state *model.State, awsHost Amazonec2Host) error {
+	hostState := model.GetHostState(state, awsHost.host.Name)
 	if awsHost.eipAlloc != "" {
 		log.Println("Associate predefined EIP with Docker Host")
 		env := utils.Environment{
@@ -141,6 +144,8 @@ func (aws *Amazonec2) makeElasticIPAssociation(awsHost Amazonec2Host) error {
 		cwd := "terraform/aws-eip"
 		utils.Execute("terraform apply", env, cwd)
 	}
+	command := fmt.Sprintf("docker-machine -s /state/machine inspect %s -f '{{.Driver.IPAddress}}'", awsHost.host.Name)
+	hostState["public-ip"] = utils.ExecuteAndRetrieve(command, nil, "")
 	return nil
 }
 
@@ -168,7 +173,6 @@ func (aws *Amazonec2) createHost(host Amazonec2Host)  {
 		host.host.Name,
 		aws.sshKeyPath,
 		host.host.Name)
-	fmt.Println(command)
 	utils.Execute(command, nil, "")
 }
 

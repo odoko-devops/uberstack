@@ -28,26 +28,45 @@ const state_file = "/state/state.yml"
 	  launcher host up local-docker
  */
 
-func CreateHost(config model.Config, state *model.State, provider model.Provider, hostConfig model.HostConfig) {
+func CreateHost(config model.Config, state *model.State, provider model.Provider,
+		hostConfig model.HostConfig, skip *model.SkipList) {
+
+	log.Printf("Creating host %s\n", hostConfig.Name)
 	defaultProvider := defaultProvider.DefaultProvider{}
-	provider.HostUp(hostConfig, state)
 	providerConfig := model.GetProviderConfigForHost(config, hostConfig)
 
-	defaultProvider.AddUbuntuToDockerGroup(hostConfig)
-	defaultProvider.RegenerateCerts(hostConfig)
-	defaultProvider.UploadSelf(hostConfig)
-	defaultProvider.StartApps(config, state, hostConfig)
-	if hostConfig.RancherAgent {
+	if !skip.Avoid(model.SkipHost) {
+		provider.HostUp(hostConfig, state)
+		defaultProvider.AddUbuntuToDockerGroup(hostConfig)
+		defaultProvider.RegenerateCerts(hostConfig)
+	}
+
+	if !skip.Avoid(model.SkipUpload) {
+		defaultProvider.UploadSelf(hostConfig)
+	}
+
+	if !skip.Avoid(model.SkipApps) {
+		defaultProvider.StartApps(config, state, hostConfig, skip)
+	}
+	if hostConfig.RancherAgent && !skip.Avoid(model.SkipRancherAgent) {
 		defaultProvider.StartRancherAgent(config, state, providerConfig, hostConfig)
 	}
+
 }
 
 func DestroyHost(config model.Config, state *model.State, provider model.Provider, host model.HostConfig) {
+
 	completed, _ := provider.HostDestroy(host, state)
 	if !completed {
 		defaultProvider := defaultProvider.DefaultProvider{}
 		defaultProvider.HostDestroy(host)
 	}
+	log.Printf("Destroyed host %s\n", host.Name)
+}
+
+func List() {
+	defaultProvider := defaultProvider.DefaultProvider{}
+	defaultProvider.List()
 }
 
 func GetProviderEnvironment(state *model.State, provider model.ProviderConfig) {
@@ -81,7 +100,7 @@ func GetHostProvider(config model.Config, state *model.State, hostConfig model.H
 	return GetProvider(config, state, hostConfig.Provider)
 }
 
-func processProvider(config model.Config, state *model.State, args []string) {
+func processProvider(config model.Config, state *model.State, args []string, skip *model.SkipList) {
 	action := args[0]
 	providerName := args[1]
 
@@ -100,35 +119,48 @@ func processProvider(config model.Config, state *model.State, args []string) {
 	}
 }
 
-func processHost(config model.Config, state *model.State, args []string) {
+func processHost(config model.Config, state *model.State, args []string, skip *model.SkipList) {
 	action := args[0]
-	hostName := args[1]
-	hostConfig := model.GetHostConfig(config, hostName)
-	provider := GetHostProvider(config, state, hostConfig)
 
 	switch action {
 	case "up":
-		CreateHost(config, state, provider, hostConfig)
+		hostName := args[1]
+		hostConfig := model.GetHostConfig(config, hostName)
+		provider := GetHostProvider(config, state, hostConfig)
+		CreateHost(config, state, provider, hostConfig, skip)
 	case "destroy":
+		hostName := args[1]
+		hostConfig := model.GetHostConfig(config, hostName)
+		provider := GetHostProvider(config, state, hostConfig)
 		DestroyHost(config, state, provider, hostConfig)
+	case "ls":
+		List()
+	case "list":
+		List()
 	case "env":
+		hostName := args[1]
+		hostConfig := model.GetHostConfig(config, hostName)
 		GetHostEnvironment(config, hostConfig)
 	}
 }
 
 func main() {
 
+	skipString := flag.String("skip", "", "Process to skip")
 	config := model.LoadConfig(config_file)
 	state := model.LoadState(state_file)
 
 	flag.Parse()
 
+	skipOptions := new(model.SkipList)
+	skipOptions = skipOptions.Configure(skipString)
+
 	group := flag.Arg(0)
 	switch group {
 	case "provider":
-		processProvider(config, state, flag.Args()[1:])
+		processProvider(config, state, flag.Args()[1:], skipOptions)
 	case "host":
-		processHost(config, state, flag.Args()[1:])
+		processHost(config, state, flag.Args()[1:], skipOptions)
 	default:
 		fmt.Printf("Unknown group: %s\n", group)
 	}

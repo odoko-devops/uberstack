@@ -13,9 +13,9 @@ type State struct {
 }
 
 type RancherAccess struct {
-	RancherUrl string
-	AccessKey string
-	SecretKey string
+	RancherUrl string `yaml:"rancher-url"`
+	AccessKey string `yaml:"access-key"`
+	SecretKey string `yaml:"secret-key"`
 }
 
 type ProviderState map[string]string
