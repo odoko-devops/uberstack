@@ -29,6 +29,6 @@ RUN apt-get update && \
 
 WORKDIR /odoko
 ADD /container /odoko
-ADD build/* /usr/local/bin/
+ADD bin/* /usr/local/bin/
 
 ENTRYPOINT ["installer"]

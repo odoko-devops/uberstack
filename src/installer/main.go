@@ -8,6 +8,8 @@ import (
 	"installer/providers/defaultProvider"
 	"installer/providers/amazonec2"
 	"installer/providers/virtualbox"
+	"strings"
+	"os"
 )
 
 const path = "/usr/local/bin:/bin:/usr/bin"
@@ -16,16 +18,20 @@ const state_file = "/state/state.yml"
 
 /*
   Sample usage (where binary is called 'launcher'):
-	  launcher provider up amazonec2
-	  launcher provider destroy amazonec2
+  	  uberstack init
+	  uberstack provider up amazonec2
+	  uberstack provider destroy amazonec2
 
-	  launcher host up management
-	  launcher host destroy management
-	  launcher host up docker01
+	  uberstack host up management
+	  uberstack host destroy management
+	  uberstack host up docker01
 
-	  launcher provider up virtualbox
-	  launcher host up local-management
-	  launcher host up local-docker
+	  uberstack provider up virtualbox
+	  uberstack host up local-management
+	  uberstack host up local-docker
+
+	  uberstack app up myapp local
+	  uberstack app up myapp dev
  */
 
 func CreateHost(config model.Config, state *model.State, provider model.Provider,
@@ -66,7 +72,7 @@ func DestroyHost(config model.Config, state *model.State, provider model.Provide
 
 func List() {
 	defaultProvider := defaultProvider.DefaultProvider{}
-	defaultProvider.List()
+	defaultProvider.ListHosts()
 }
 
 func GetProviderEnvironment(state *model.State, provider model.ProviderConfig) {
@@ -144,23 +150,82 @@ func processHost(config model.Config, state *model.State, args []string, skip *m
 	}
 }
 
+func processApp(config model.Config, state *model.State, args []string, skip *model.SkipList) {
+	uberHome := os.Getenv("UBER_HOME")
+	if uberHome == "" {
+		println("Please set UBER_HOME.")
+		os.Exit(1)
+	}
+
+	if len(args) < 3 {
+		println("Usage: app <action> <uberstack-name> <environment name>")
+		os.Exit(1)
+	}
+
+	action := args[0]
+	uberstackName := args[1]
+	environment := args[2]
+
+	cmd := ""
+	desc := ""
+	switch action {
+	case "up":
+		cmd = "up -d"
+		desc = "Installing"
+	case "upgrade":
+		cmd = "up --upgrade --pull -d " + strings.Join(flag.Args()[3:], " ")
+		desc = "Upgrading"
+	case "confirm-upgrade":
+		cmd = "up --upgrade --confirm-upgrade"
+		desc = "Confirming"
+	case "rollback":
+		cmd = "up --upgrade --rollback"
+		desc = "Rolling back"
+	case "rm":
+		if environment != "local" {
+			var answer string
+			fmt.Print("Retype uberstack name to confirm deletion: ")
+			fmt.Scanln(&answer)
+			if answer != uberstackName {
+				fmt.Println("Confirmation failed, quitting")
+				os.Exit(1)
+			}
+		}
+		cmd = "rm --force"
+		desc = "Removing"
+	default:
+		fmt.Printf("Unknown action: %s", action)
+		os.Exit(1)
+	}
+	fmt.Println("cmd:", cmd)
+	fmt.Println("desc:", desc)
+	fmt.Println("uberstack:", uberstackName)
+	defaultProvider := defaultProvider.DefaultProvider{}
+	uberstack := defaultProvider.GetUberstack(uberHome, uberstackName)
+	defaultProvider.ProcessUberstack(uberHome, uberstack, environment, cmd, "")
+
+}
 func main() {
 
 	skipString := flag.String("skip", "", "Process to skip")
+	flag.Parse()
+
 	config := model.LoadConfig(config_file)
 	state := model.LoadState(state_file)
 
-	flag.Parse()
-
 	skipOptions := new(model.SkipList)
-	skipOptions = skipOptions.Configure(skipString)
+	skipOptions = skipOptions.Configure(*skipString)
 
 	group := flag.Arg(0)
 	switch group {
+	case "init":
+		processInit(config, state, flags.Args()[1:], skipOptions)
 	case "provider":
 		processProvider(config, state, flag.Args()[1:], skipOptions)
 	case "host":
 		processHost(config, state, flag.Args()[1:], skipOptions)
+	case "app":
+		processApp(config, state, flag.Args()[1:], skipOptions)
 	default:
 		fmt.Printf("Unknown group: %s\n", group)
 	}

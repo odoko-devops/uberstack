@@ -1,71 +1,88 @@
 package virtualbox
 
-import "installer/model"
+import (
+	"installer/model"
+	"fmt"
+	"utils"
+)
 
 type VirtualBox struct {
-
+	Boot2DockerImage string
+	NetMask string
+	Broadcast string
 }
 
 func (v *VirtualBox) Configure(config model.Config, state *model.State, provider model.ProviderConfig) error {
+	v.Boot2DockerImage = provider.Config["boot2docker-image"]
+	v.NetMask = provider.Config["netmask"]
+	v.Broadcast = provider.Config["broadcast"]
 	return nil
 }
 func (v *VirtualBox) InfrastructureUp() error {
+	println("Nothing to do for Virtualbox Infrastructure")
 	return nil
 }
 func (v *VirtualBox) InfrastructureDestroy() error {
+	println("Nothing to do for Virtualbox Infrastructure")
 	return nil
 }
 func (v *VirtualBox) HostUp(host model.HostConfig, state *model.State) error {
-	return nil
-}
 
-func (v *VirtualBox) HostDestroy(host model.HostConfig, state *model.State) (bool, error) {
-	return false, nil
-}
-
-/*
-def create_local_host(name, disk, memory, image):
-  return '''docker-machine create %s \
+	disk := host.Config["disk-size"]
+	memory := host.Config["ram"]
+	image := v.Boot2DockerImage
+	command := fmt.Sprintf(`docker-machine create %s \
              --driver virtualbox \
              --virtualbox-cpu-count -1 \
              --virtualbox-disk-size %s \
              --virtualbox-memory %s \
              --virtualbox-boot2docker-url=%s
-             ''' % (name, disk, memory, image)
+             `, host.Name, disk, memory, image)
+	utils.ExtendScript(command)
 
-def create_local_rancher_host(config):
-  local = config["local"]
-  rancher = local["rancher"]
-  script = ["#!/bin/sh"]
-  script.append(create_local_host("rancher", rancher["disk-size"], rancher["ram"], local["boot2docker-image"]))
-  script.extend(set_ip("rancher", local, rancher))
-  script.append('docker-machine ssh rancher "docker run -d --restart=always -p 80:8080 rancher/server"')
+	v.setIp(host.Name)
+	v.makeLocalRancherHostLinks(host.Name)
+	return nil
+}
 
-  write_script("/state/run", script)
-  ask("state/run")
+func (v *VirtualBox) HostDestroy(host model.HostConfig, state *model.State) (bool, error) {
+	command := fmt.Sprintf("docker-machine rm -f %s", host.Name)
+	utils.ExtendScript(command)
+	return true, nil
+}
 
-def set_ip(name, local, host):
-  return ["docker-machine ssh %s \"echo '%s netmask %s broadcast %s' | sudo tee /etc/ip.cfg\"" %
-             (name, host["ip"], local["netmask"], local["broadcast"]),
-          "docker-machine ssh %s \"echo 'sudo cat /var/run/udhcpc.eth1.pid | xargs sudo kill' | sudo tee -a /var/lib/boot2docker/bootsync.sh\"" % name,
-          "docker-machine ssh %s \"echo 'sudo ifconfig eth1 \$(cat /etc/ip.cfg) up' | sudo tee -a /var/lib/boot2docker/bootsync.sh\"" % name,
-          "docker-machine ssh %s \"sudo cat /var/run/udhcpc.eth1.pid | xargs sudo kill\"" % name,
-          "docker-machine ssh %s \"sudo ifconfig eth1 \$(cat /etc/ip.cfg) up\"" % name,
-          "docker-machine regenerate-certs -f %s" % name
-         ]
+func (v *VirtualBox) setIp(name string) {
 
-def make_local_rancher_host_links(host):
-  return ["docker-machine ssh %s \"sudo mkdir /mnt/sda1/var/lib/rancher\"" % host,
-          "docker-machine ssh %s \"echo 'sudo mkdir /var/lib/rancher' | sudo tee -a /var/lib/boot2docker/profile\"" % host,
-          "docker-machine ssh %s \"echo 'sudo mount -r /mnt/sda1/var/lib/rancher /var/lib/rancher' | sudo tee -a /var/lib/boot2docker/profile\"" % host
-         ]
+	ssh := "docker-machine ssh " + name
+	command := fmt.Sprintf("%s \"echo '%s netmask %s broadcast %s' | sudo tee /etc/ip.cfg\"",
+		ssh, v.NetMask, v.Broadcast)
+	utils.ExtendScript(command)
 
-def create_local_docker_host(config):
-  local = config["local"]
-  docker = local["docker-host"]
-  create_local_host("docker", docker["disk-size"], rancher["ram"], local["boot2docker-image"])
-  set_ip("docker", local, docker)
-  make_local_rancher_host_links("docker")
+	command = ssh + "\"echo 'sudo cat /var/run/udhcpc.eth1.pid | xargs sudo kill' | sudo tee -a /var/lib/boot2docker/bootsync.sh\""
+	utils.ExtendScript(command)
 
+	command = ssh + "\"echo 'sudo ifconfig eth1 \\$(cat /etc/ip.cfg) up' | sudo tee -a /var/lib/boot2docker/bootsync.sh\""
+	utils.ExtendScript(command)
 
-*/
+	command = ssh + "\"sudo cat /var/run/udhcpc.eth1.pid | xargs sudo kill\""
+	utils.ExtendScript(command)
+
+	command = ssh + "\"sudo ifconfig eth1 \\$(cat /etc/ip.cfg) up\""
+	utils.ExtendScript(command)
+
+	command = "docker-machine regenerate-certs -f " + name
+	utils.ExtendScript(command)
+}
+
+func (v *VirtualBox) makeLocalRancherHostLinks(name string) {
+	ssh := "docker-machine ssh " + name
+
+	command := ssh + "\"sudo mkdir /mnt/sda1/var/lib/rancher\""
+	utils.ExtendScript(command)
+
+	command = ssh + "\"echo 'sudo mkdir /var/lib/rancher' | sudo tee -a /var/lib/boot2docker/profile\""
+	utils.ExtendScript(command)
+
+	command = ssh + "\"echo 'sudo mount -r /mnt/sda1/var/lib/rancher /var/lib/rancher' | sudo tee -a /var/lib/boot2docker/profile\""
+	utils.ExtendScript(command)
+}

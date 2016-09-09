@@ -7,6 +7,9 @@ import (
 	"fmt"
 	"strings"
 	"remote/apps"
+	"os"
+	"io/ioutil"
+	"gopkg.in/yaml.v2"
 )
 
 type DefaultProvider struct {
@@ -70,7 +73,7 @@ func (p DefaultProvider) StartApps(config model.Config, state *model.State, host
 				//apps.Vpn_Install(config, state, host, app)
 			}
 		default:
-			log.Panic("Unknown app: %v", app.Type)
+			log.Panic("Unknown app: " + app.Type)
 		}
 	}
 	log.Println("Apps installed")
@@ -134,6 +137,161 @@ export RANCHER_SECRET_KEY=%s\n`,
 		providerState.SecretKey)
 }
 
-func (p DefaultProvider) List() {
+func (p DefaultProvider) ListHosts() {
 	utils.Execute("docker-machine -s /state/machine ls", nil, "")
+}
+
+
+/***********************************************************************
+ * Identify stacks within $UBER_HOME directory
+ */
+func getUberstacks(uberHome string) []string {
+	files, _ := ioutil.ReadDir(uberHome + "/uberstacks")
+	uberstacks := make([]string, 0, len(files))
+	for _, f := range files {
+		if strings.HasSuffix(f.Name(), ".yml") {
+			s := strings.Split(f.Name(), ".")
+			if len(s) == 2 && s[1] == "yml" {
+				uberstacks = uberstacks[0: len(uberstacks) + 1]
+				uberstacks[len(uberstacks) - 1] = s[0]
+			}
+		}
+	}
+	return uberstacks
+}
+
+/***********************************************************************
+ * Identify stacks within $UBER_HOME directory
+ */
+func getStacks(uberHome string) []string {
+	files, _ := ioutil.ReadDir(uberHome + "/stacks")
+	stacks := make([]string, 0, len(files))
+	for _, f := range files {
+		s := strings.Split(f.Name(), ".")
+		if len(s) == 1 {
+			stacks = stacks[0: len(stacks) + 1]
+			stacks[len(stacks) - 1] = s[0]
+		}
+	}
+	return stacks
+}
+
+/***********************************************************************
+ * Read a single uberstack from its config yaml file
+ */
+func (p DefaultProvider) GetUberstack(uberHome string, name string) model.Uberstack {
+	bytes, err := ioutil.ReadFile(uberHome + "/uberstacks/" + name + ".yml")
+	utils.Check(err)
+	uberstack := model.Uberstack{}
+	err = yaml.Unmarshal(bytes, &uberstack)
+	utils.Check(err)
+	return uberstack
+}
+
+/***********************************************************************
+ * Execute ls command
+ */
+func ListUberstacks(uberHome string) {
+	fmt.Println("\nStacks:")
+	fmt.Println("-------")
+	stacks := getStacks(uberHome)
+	for stack_id := range stacks {
+		fmt.Println(stacks[stack_id])
+	}
+	fmt.Println("\nUberstacks:")
+	fmt.Println("-----------")
+	uberstacks := getUberstacks(uberHome)
+	for uber_id := range uberstacks {
+		fmt.Println(uberstacks[uber_id])
+	}
+}
+
+/***********************************************************************
+ * Build a suitable environment for execution
+ */
+func getParametersFor(uberstack model.Uberstack, env string, state_file string) utils.Environment {
+	params := getParametersFromEnvironmentAndUberstack(uberstack, env)
+	addParametersFromState(env, state_file, &params)
+	checkRequiredUberstackVariables(uberstack, params)
+	return params
+}
+
+func getParametersFromEnvironmentAndUberstack(uberstack model.Uberstack, env string) utils.Environment {
+	environ := os.Environ()
+	params := utils.Environment{}
+
+	for _, v := range environ {
+		s := strings.SplitN(v, "=", 2)
+		name := s[0]
+		value := s[1]
+		params[name] = value
+	}
+
+	for k, v := range uberstack.Environments[env] {
+		params[k] = v
+	}
+
+	return params
+}
+
+func addParametersFromState(env string, state_file string, params *utils.Environment) {
+	state := model.LoadState("/state/state.yml")
+
+	if env == "local" {
+		(*params)["RANCHER_ACCESS_KEY"] = state.Provider["virtualbox"].AccessKey
+		(*params)["RANCHER_SECRET_KEY"] = state.Provider["virtualbox"].SecretKey
+	} else {
+		(*params)["RANCHER_ACCESS_KEY"] = state.Provider["amazonec2"].AccessKey
+		(*params)["RANCHER_SECRET_KEY"] = state.Provider["amazonec2"].SecretKey
+	}
+}
+
+/***********************************************************************
+ * Check for required variables
+ */
+func checkRequiredUberstackVariables(uberstack model.Uberstack, params utils.Environment) {
+
+	for i := range uberstack.Required {
+		required := uberstack.Required[i]
+		_, ok := params[required]
+		if !ok {
+			log.Fatal("Required parameter: ", required)
+			os.Exit(1)
+		}
+	}
+}
+
+/***********************************************************************
+ * Process any referenced Uberstacks
+ */
+func (p DefaultProvider) ProcessUberstack(uberHome string, uberstack model.Uberstack, env string, cmd string, exclude_stack string) {
+
+	fmt.Println("process_uberstack", uberstack.Name)
+	for i := 0; i < len(uberstack.Uberstacks); i++ {
+		name := uberstack.Uberstacks[i]
+		inner_uberstack := p.GetUberstack(uberHome, name)
+		p.ProcessUberstack(uberHome, inner_uberstack, env, cmd, exclude_stack)
+	}
+
+	for i := range uberstack.Stacks {
+		name := uberstack.Stacks[i]
+		if name == exclude_stack {
+			continue
+		}
+		project := name
+		stack := name
+
+		s := strings.SplitN(name, ":", 2)
+		if len(s) == 2 {
+			project = s[0]
+			stack = s[1]
+		}
+		command := fmt.Sprintf(`rancher-compose --file %s/stacks/%s/docker-compose.yml \
+                        --rancher-file %s/stacks/%s/rancher-compose.yml \
+                        --project-name %s \
+                        %s`,
+			uberHome, stack, uberHome, stack, project, cmd)
+		env := getParametersFor(uberstack, env, "/state/state.yml")
+		utils.Execute(command, env, "")
+	}
 }

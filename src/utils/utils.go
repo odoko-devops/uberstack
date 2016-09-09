@@ -6,7 +6,6 @@ import (
 	"io"
 	"bufio"
 	"os/exec"
-	"io/ioutil"
 	"strings"
 	"github.com/kr/pty"
 	"time"
@@ -132,21 +131,58 @@ func ExecuteWithInput(command, input string, env Environment, dir string) {
 /***********************************************************************
  * Write commands to a script file for manual execution
  */
-func WriteScript(path, script string) {
-	err := ioutil.WriteFile(path, []byte(script), 0755)
-	Check(err)
+func GetUberScript() string {
+	uberState := GetUberState()
+	return uberState + "/temp-uberscript.sh"
 }
 
+func ExtendScript(script string) {
+	isNew := !DoesUberScriptExist()
 
-/***********************************************************************
- * Ask the user to take a specific action
- */
-func Ask(cmd string) {
-	fmt.Printf(`
-  Some commands cannot be executed within a container. They have been added to
-  a script, which you must now execute within your local host.
+	uberScript := GetUberScript()
 
-  Please execute the following command:
+	var f *os.File
+	var err error
+	if (isNew) {
+		f, err = os.OpenFile(uberScript, os.O_CREATE|os.O_WRONLY, 0755)
+		Check(err)
+		_, err = f.WriteString("#!/bin/sh\n")
+		Check(err)
+	} else {
+		f, err = os.OpenFile(uberScript, os.O_APPEND|os.O_WRONLY, 0755)
+		Check(err)
+	}
+	_, err = f.WriteString(script)
+	Check(err)
+	f.Close()
+}
 
-  %s\n`, cmd)
+func DoesUberScriptExist() bool {
+	uberScript := GetUberScript()
+	_, err := os.Stat(uberScript)
+	return err == nil
+}
+
+func ExecuteUberScript() {
+	Execute(GetUberScript(), nil, "")
+}
+
+func RemoveUberScript() {
+	uberScript := GetUberScript()
+	os.Remove(uberScript)
+}
+
+func GetUberState() string {
+	uberState := os.Getenv("UBER_STATE")
+
+	if uberState == "" {
+
+		uberHome := os.Getenv("UBER_HOME")
+		if uberHome == "" {
+			println("Please set either UBER_HOME or UBER_STATE")
+			os.Exit(1)
+		}
+		uberState = uberHome + "/state"
+	}
+	return uberState
 }

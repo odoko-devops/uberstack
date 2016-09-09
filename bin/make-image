@@ -1,9 +1,0 @@
-#!/bin/bash -e
-
-echo "###############################################################################"
-echo "Building Docker image"
-
-HERE=$(cd `dirname $0`/..;pwd)
-docker build -t odoko/docker-stack-build -f Dockerfile.build .
-docker run -v $HERE/build:/build -v $HERE/src:/odoko/golibs/src odoko/docker-stack-build $*
-docker build -t odoko/docker-stack .

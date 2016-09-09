@@ -36,15 +36,19 @@ type SkipFunctions interface {
 	Avoid(int) bool
 }
 
-func (s *SkipList) Configure(skipOptions *string) *SkipList {
-	parts := strings.Split(*skipOptions, ",")
+func (s *SkipList) Configure(skipOptions string) *SkipList {
+	if skipOptions == "" {
+		return s
+	}
+	parts := strings.Split(skipOptions, ",")
 	for _, part := range parts {
+		fmt.Println(part)
 		id, ok := skipMapping[part]
 		if ok {
 			var newList SkipList = *s | id
 			s = &newList
 		} else {
-			fmt.Printf("Unknown skip option: %s", part)
+			fmt.Printf("Unknown skip option: %s\n", part)
 		}
 	}
 	return s

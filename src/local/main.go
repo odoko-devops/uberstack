@@ -8,20 +8,25 @@ import (
 )
 
 func main() {
+	uberHome := os.Getenv("UBER_HOME")
 	uberState := os.Getenv("UBER_STATE")
 
-	if uberState == "" {
-
-		uberHome := os.Getenv("UBER_HOME")
-		if uberHome == "" {
-			println("Please set either UBER_HOME or UBER_STATE")
-			os.Exit(1)
-		}
-		uberState = fmt.Sprintf("%s/state", uberHome)
+	uberHomeEnv := ""
+	if uberHome != "" {
+		uberHomeEnv = fmt.Sprintf("-e UBER_HOME=/uberhome -v %s:/uberhome", uberHome)
 	}
-	command := fmt.Sprintf(`
-	   docker run --rm \
-	   -v %s:/state \
-	   odoko/docker-stack %s`, uberState, strings.Join(os.Args[1:], " "))
+
+	if uberState == "" {
+		uberState = uberHome + "/state"
+	}
+	uberStateEnv := fmt.Sprintf("-e UBER_STATE=/state -v %s:/state", uberState)
+
+	args := strings.Join(os.Args[1:], " ")
+	command := fmt.Sprintf("docker run --rm %s %s odoko/docker-stack %s", uberHomeEnv, uberStateEnv, args)
 	utils.Execute(command, nil, "")
+
+	if utils.DoesUberScriptExist() {
+		utils.ExecuteUberScript()
+		utils.RemoveUberScript()
+	}
 }

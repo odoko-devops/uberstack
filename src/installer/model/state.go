@@ -7,9 +7,9 @@ import (
 )
 
 type State struct {
-	Provider map[string]RancherAccess
+	Provider      map[string]RancherAccess
 	ProviderState map[string]ProviderState
-	HostState map[string]HostState
+	HostState     map[string]HostState
 }
 
 type RancherAccess struct {

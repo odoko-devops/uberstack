@@ -92,3 +92,12 @@ func GetHostState(state *State, name string) HostState {
 	}
 	return hostState
 }
+
+type Uberstack struct {
+	Name         string
+	Stacks       []string
+	Uberstacks   []string
+	Required     []string
+	Environments map[string]utils.Environment
+}
+

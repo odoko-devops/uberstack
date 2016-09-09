@@ -8,3 +8,4 @@ terraform.tfvars
 /build
 /src/pkg
 /tmp
+/pkg
