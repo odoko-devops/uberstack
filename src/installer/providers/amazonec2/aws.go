@@ -5,6 +5,10 @@ import (
 	"log"
 	"installer/model"
 	"fmt"
+	"io/ioutil"
+	"os"
+	"text/template"
+	"strings"
 )
 
 type Amazonec2 struct {
@@ -35,6 +39,7 @@ type Amazonec2Host struct {
 	instanceId    string
 }
 
+
 func (aws *Amazonec2) Configure(config model.Config, state *model.State, provider model.ProviderConfig) error {
 	aws.config = config
 	aws.state = state
@@ -55,6 +60,9 @@ func (aws *Amazonec2) Configure(config model.Config, state *model.State, provide
 	aws.region = provider.Config["region"]
 	aws.zone = provider.Config["zone"]
 	aws.sshKeyPath = provider.Config["ssh-keypath"]
+	if aws.sshKeyPath[0:1] != "/" {
+		aws.sshKeyPath = fmt.Sprintf("%s/%s", utils.GetUberState(), aws.sshKeyPath)
+	}
 
 	aws.hosts = make(map[string]Amazonec2Host, len(config.Hosts))
 
@@ -124,6 +132,7 @@ func (aws *Amazonec2) HostUp(hostConfig model.HostConfig, state *model.State) er
 		aws.state.HostState[hostConfig.Name] = hostState
 	}
 	hostState["instanceId"] = awsHost.instanceId
+	state.HostState[hostConfig.Name] = hostState
 	return nil
 }
 
@@ -131,27 +140,69 @@ func (aws *Amazonec2) HostDestroy(host model.HostConfig, state *model.State) (bo
 	return false, nil
 }
 
+
+var terraformEipAssociation string =`
+provider "aws" {
+  access_key = "{{.accessKey}}"
+  secret_key = "{{.secretKey}}"
+  region     = "{{.region}}"
+}
+
+resource "aws_eip_association" "{{.hostName}}" {
+  instance_id = "{{.instanceId}}"
+  allocation_id = "{{.allocationId}}"
+}
+
+output "public_id" {
+  value = "${aws_eip_association.{{.hostName}}.public_ip}"
+}
+
+`
 func (aws *Amazonec2) makeElasticIPAssociation(state *model.State, awsHost Amazonec2Host) error {
 	hostState := model.GetHostState(state, awsHost.host.Name)
 	if awsHost.eipAlloc != "" {
 		log.Println("Associate predefined EIP with Docker Host")
-		env := utils.Environment{
-			"TF_VAR_aws_access_key": aws.accessKey,
-			"TF_VAR_aws_secret_key": aws.secretKey,
-			"TF_VAR_instance_id": awsHost.instanceId,
-			"TF_VAR_allocation_id": awsHost.eipAlloc,
+
+		params := map[string]string{
+			"accessKey": aws.accessKey,
+			"secretKey": aws.secretKey,
+			"region": aws.region,
+			"hostName": awsHost.host.Name,
+			"instanceId": awsHost.instanceId,
+			"allocationId": awsHost.eipAlloc,
 		}
-		cwd := "terraform/aws-eip"
-		utils.Execute("terraform apply", env, cwd)
+		fmt.Printf("PARAMS: %v\n", params)
+		createCommandTemplate, err := template.New("terraformEip").Parse(terraformEipAssociation)
+
+		dir, err := ioutil.TempDir("", "terraform")
+		fmt.Printf("Created %s\n", dir)
+		utils.Check(err)
+
+		f, err := os.Create(dir + "/eip.tf")
+		utils.Check(err)
+
+		err = createCommandTemplate.Execute(f, params)
+		utils.Check(err)
+
+		f.Close()
+		cwd := dir
+		utils.Execute("terraform apply", nil, cwd)
+		cmd := "terraform output public_id"
+		hostState["public-ip"] = utils.ExecuteAndRetrieve(cmd, nil, cwd)
+		state.HostState[awsHost.host.Name] = hostState
+
+		os.RemoveAll(dir)
+	} else {
+		command := fmt.Sprintf("docker-machine -s %s/machine inspect %s -f '{{.Driver.IPAddress}}'",
+			utils.GetUberState(), awsHost.host.Name)
+		hostState["public-ip"] = utils.ExecuteAndRetrieve(command, nil, "")
 	}
-	command := fmt.Sprintf("docker-machine -s /state/machine inspect %s -f '{{.Driver.IPAddress}}'", awsHost.host.Name)
-	hostState["public-ip"] = utils.ExecuteAndRetrieve(command, nil, "")
 	return nil
 }
 
 func (aws *Amazonec2) createHost(host Amazonec2Host)  {
 	log.Printf("Create host %s\n", host.host.Name)
-	command := fmt.Sprintf(`docker-machine -s /state/machine create --driver amazonec2 \
+	command := fmt.Sprintf(`docker-machine -s %s/machine create --driver amazonec2 \
            --amazonec2-access-key=%s \
            --amazonec2-secret-key=%s \
                --amazonec2-vpc-id=%s \
@@ -160,9 +211,11 @@ func (aws *Amazonec2) createHost(host Amazonec2Host)  {
                --amazonec2-region=%s \
                --amazonec2-zone=%s \
                --amazonec2-subnet-id=%s \
-               --amazonec2-tags name=%s \
+               --amazonec2-tags name,%s \
                --amazonec2-ssh-keypath=%s \
-               %s`, aws.accessKey,
+               %s`,
+		utils.GetUberState(),
+		aws.accessKey,
 		aws.secretKey,
 		aws.vpcId,
 		host.instanceType,
@@ -177,8 +230,10 @@ func (aws *Amazonec2) createHost(host Amazonec2Host)  {
 }
 
 func (aws *Amazonec2) getInstanceId(host Amazonec2Host) string {
-	command := fmt.Sprintf("docker-machine -s /state/machine inspect %s -f '{{.Driver.InstanceId}}'", host.host.Name)
-	instanceId := utils.ExecuteAndRetrieve(command, nil, "")
+	command := fmt.Sprintf("docker-machine -s %s/machine inspect %s -f '{{.Driver.InstanceId}}'",
+		utils.GetUberState(), host.host.Name)
+	instanceId := strings.Replace(utils.ExecuteAndRetrieve(command, nil, ""), "'", "", -1)
+	fmt.Printf("INSTANCE ID = %s\n", instanceId)
 	return instanceId
 }
 

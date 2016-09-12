@@ -42,7 +42,6 @@ func (s *SkipList) Configure(skipOptions string) *SkipList {
 	}
 	parts := strings.Split(skipOptions, ",")
 	for _, part := range parts {
-		fmt.Println(part)
 		id, ok := skipMapping[part]
 		if ok {
 			var newList SkipList = *s | id

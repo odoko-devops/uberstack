@@ -10,11 +10,8 @@ import (
 	"installer/providers/virtualbox"
 	"strings"
 	"os"
+	"utils"
 )
-
-const path = "/usr/local/bin:/bin:/usr/bin"
-const config_file = "/state/config.yml"
-const state_file = "/state/state.yml"
 
 /*
   Sample usage (where binary is called 'launcher'):
@@ -70,19 +67,24 @@ func DestroyHost(config model.Config, state *model.State, provider model.Provide
 	log.Printf("Destroyed host %s\n", host.Name)
 }
 
-func List() {
+func ListHosts() {
 	defaultProvider := defaultProvider.DefaultProvider{}
 	defaultProvider.ListHosts()
 }
 
 func GetProviderEnvironment(state *model.State, provider model.ProviderConfig) {
-	defaultProvider := defaultProvider.DefaultProvider{}
-	defaultProvider.GetRancherEnvironment(state, provider)
+	env := model.GetRancherEnvironment(state, provider)
+	for k,v := range env {
+		fmt.Sprintf("export %s=%s\n", k, v)
+	}
 }
 
 
-func GetHostEnvironment(config model.Config, host model.HostConfig) {
-
+func GetHostEnvironment(state *model.State, host model.HostConfig) {
+	env := model.GetDockerEnvironment(state, host)
+	for k,v := range env {
+		fmt.Printf("export %s=%s\n", k, v)
+	}
 }
 
 func GetProvider(config model.Config, state *model.State, name string) model.Provider {
@@ -134,19 +136,19 @@ func processHost(config model.Config, state *model.State, args []string, skip *m
 		hostConfig := model.GetHostConfig(config, hostName)
 		provider := GetHostProvider(config, state, hostConfig)
 		CreateHost(config, state, provider, hostConfig, skip)
-	case "destroy":
+	case "destroy", "rm":
 		hostName := args[1]
 		hostConfig := model.GetHostConfig(config, hostName)
 		provider := GetHostProvider(config, state, hostConfig)
 		DestroyHost(config, state, provider, hostConfig)
-	case "ls":
-		List()
-	case "list":
-		List()
+	case "ls", "list":
+		ListHosts()
 	case "env":
 		hostName := args[1]
 		hostConfig := model.GetHostConfig(config, hostName)
-		GetHostEnvironment(config, hostConfig)
+		GetHostEnvironment(state, hostConfig)
+	default:
+		log.Printf("Unknown host action: %s\n", action)
 	}
 }
 
@@ -197,21 +199,30 @@ func processApp(config model.Config, state *model.State, args []string, skip *mo
 		fmt.Printf("Unknown action: %s", action)
 		os.Exit(1)
 	}
-	fmt.Println("cmd:", cmd)
-	fmt.Println("desc:", desc)
-	fmt.Println("uberstack:", uberstackName)
 	defaultProvider := defaultProvider.DefaultProvider{}
 	uberstack := defaultProvider.GetUberstack(uberHome, uberstackName)
-	defaultProvider.ProcessUberstack(uberHome, uberstack, environment, cmd, "")
+	fmt.Printf("%s uberstack %s\n", desc, uberstack.Name)
+
+	defaultProvider.ProcessUberstack(config, state, uberHome, uberstack, environment, cmd, "")
 
 }
+
+func processInit(config model.Config, state *model.State, args []string, skip *model.SkipList) {
+	utils.Download("docker-machine")
+	utils.Download("rancher-compose")
+	utils.Download("terraform")
+}
+
 func main() {
 
 	skipString := flag.String("skip", "", "Process to skip")
 	flag.Parse()
 
-	config := model.LoadConfig(config_file)
-	state := model.LoadState(state_file)
+	uberState := utils.GetUberState()
+	configFile := uberState + "/config.yml"
+	stateFile := uberState + "/state.yml"
+	config := model.LoadConfig(configFile)
+	state := model.LoadState(stateFile)
 
 	skipOptions := new(model.SkipList)
 	skipOptions = skipOptions.Configure(*skipString)
@@ -219,7 +230,7 @@ func main() {
 	group := flag.Arg(0)
 	switch group {
 	case "init":
-		processInit(config, state, flags.Args()[1:], skipOptions)
+		processInit(config, state, flag.Args()[1:], skipOptions)
 	case "provider":
 		processProvider(config, state, flag.Args()[1:], skipOptions)
 	case "host":
@@ -230,5 +241,5 @@ func main() {
 		fmt.Printf("Unknown group: %s\n", group)
 	}
 
-	model.SaveState(state_file, state)
+	model.SaveState(stateFile, state)
 }

@@ -6,10 +6,10 @@ import (
 	"utils"
 	"fmt"
 	"strings"
-	"remote/apps"
 	"os"
 	"io/ioutil"
 	"gopkg.in/yaml.v2"
+	"remote/apps"
 )
 
 type DefaultProvider struct {
@@ -23,26 +23,27 @@ func (p DefaultProvider) Configure(config model.Config) {
 func (p DefaultProvider) HostDestroy(host model.HostConfig) (bool, error) {
 	log.Printf("Destroy host: %s\n", host.Name)
 
-	command := fmt.Sprintf("docker-machine -s /state/machine rm -f %s", host.Name)
+	command := fmt.Sprintf("docker-machine -s %s/machine rm -f %s", utils.GetUberState(), host.Name)
 	utils.Execute(command, nil, "")
 	return true, nil
 }
 
 func (p DefaultProvider) AddUbuntuToDockerGroup(host model.HostConfig) {
 	log.Printf("Add ubuntu user to docker unix group on host %s\n", host.Name)
-	command := fmt.Sprintf("docker-machine -s /state/machine ssh %s \"sudo gpasswd -a ubuntu docker\"", host.Name)
-	utils.Execute(command, nil, "")
+	command := "sudo gpasswd -a ubuntu docker"
+	utils.ExecuteRemote(host.Name, command, nil, "")
 }
 
 func (p DefaultProvider) RegenerateCerts(host model.HostConfig) {
 	log.Printf("Regenerating certificates for %s\n", host.Name)
-	command := fmt.Sprintf("docker-machine -s /state/machine regenerate-certs -f %s", host.Name)
+	command := fmt.Sprintf("docker-machine -s %s/machine regenerate-certs -f %s", utils.GetUberState(), host.Name)
 	utils.Execute(command, nil, "")
 }
 
 func (p DefaultProvider) UploadSelf(host model.HostConfig) {
 	log.Printf("Upload configuration utility to %s\n", host.Name)
-	command := fmt.Sprintf("docker-machine -s /state/machine scp /usr/local/bin/remote %s:", host.Name)
+	command := fmt.Sprintf("docker-machine -s %s/machine scp bin/remote %s:",
+		utils.GetUberState(), host.Name)
 	utils.Execute(command, nil, "")
 }
 
@@ -69,8 +70,7 @@ func (p DefaultProvider) StartApps(config model.Config, state *model.State, host
 			}
 		case "vpn":
 			if !skip.Avoid(model.SkipVpn) {
-				//Not yet sorted:
-				//apps.Vpn_Install(config, state, host, app)
+				apps.Vpn_Install(config, state, host, app)
 			}
 		default:
 			log.Panic("Unknown app: " + app.Type)
@@ -104,41 +104,9 @@ func (p DefaultProvider) StartRancherAgent(config model.Config, state *model.Sta
 	utils.ExecuteRemote(host.Name, command, nil, "")
 }
 
-
-func (p DefaultProvider) getDockerEnvironment(host model.HostConfig) {
-	/*
-	  RE=re.compile(r"export (.*)=\"(.*)\"")
-	  execute("docker-machine regenerate-certs -f management")
-	  result=execute("docker-machine env --shell management")
-
-	  env={}
-	  for line in result.split("\n"):
-	    m=RE.match(line)
-	    if m:
-	      env[m.group(1)] = m.group[2]
-	  return env
-
-	  if hostname == "management":
-	    print "export DOCKER_TLS_VERIFY=1"
-	    print "export DOCKER_HOST=tcp://%s:2376" % config["aws"]["management-host"]["elastic-ip"]
-	    print "export DOCKER_CERT_PATH=~/.docker/machine/machines/management"
-	    print "export DOCKER_MACHINE_NAME=management"
-	*/
-}
-
-func (p DefaultProvider) GetRancherEnvironment(state *model.State, provider model.ProviderConfig) {
-	providerState := state.Provider[provider.Name]
-	fmt.Printf(`
-export RANCHER_URL=http://%s
-export RANCHER_ACCESS_KEY=%s
-export RANCHER_SECRET_KEY=%s\n`,
-		providerState.RancherUrl,
-		providerState.AccessKey,
-		providerState.SecretKey)
-}
-
 func (p DefaultProvider) ListHosts() {
-	utils.Execute("docker-machine -s /state/machine ls", nil, "")
+	command := fmt.Sprintf("docker-machine -s %s/machine ls", utils.GetUberState())
+	utils.Execute(command, nil, "")
 }
 
 
@@ -209,9 +177,15 @@ func ListUberstacks(uberHome string) {
 /***********************************************************************
  * Build a suitable environment for execution
  */
-func getParametersFor(uberstack model.Uberstack, env string, state_file string) utils.Environment {
+func getParametersFor(uberstack model.Uberstack, env string, state *model.State) utils.Environment {
 	params := getParametersFromEnvironmentAndUberstack(uberstack, env)
-	addParametersFromState(env, state_file, &params)
+
+	provider := uberstack.Environments[env].Provider
+	providerState := state.Provider[provider]
+	params["RANCHER_URL"] = fmt.Sprintf("http://%s/", providerState.RancherUrl)
+	params["RANCHER_ACCESS_KEY"] = providerState.AccessKey
+	params["RANCHER_SECRET_KEY"] = providerState.SecretKey
+
 	checkRequiredUberstackVariables(uberstack, params)
 	return params
 }
@@ -227,24 +201,13 @@ func getParametersFromEnvironmentAndUberstack(uberstack model.Uberstack, env str
 		params[name] = value
 	}
 
-	for k, v := range uberstack.Environments[env] {
+	for k, v := range uberstack.Environments[env].Environment {
 		params[k] = v
 	}
 
 	return params
 }
 
-func addParametersFromState(env string, state_file string, params *utils.Environment) {
-	state := model.LoadState("/state/state.yml")
-
-	if env == "local" {
-		(*params)["RANCHER_ACCESS_KEY"] = state.Provider["virtualbox"].AccessKey
-		(*params)["RANCHER_SECRET_KEY"] = state.Provider["virtualbox"].SecretKey
-	} else {
-		(*params)["RANCHER_ACCESS_KEY"] = state.Provider["amazonec2"].AccessKey
-		(*params)["RANCHER_SECRET_KEY"] = state.Provider["amazonec2"].SecretKey
-	}
-}
 
 /***********************************************************************
  * Check for required variables
@@ -264,13 +227,13 @@ func checkRequiredUberstackVariables(uberstack model.Uberstack, params utils.Env
 /***********************************************************************
  * Process any referenced Uberstacks
  */
-func (p DefaultProvider) ProcessUberstack(uberHome string, uberstack model.Uberstack, env string, cmd string, exclude_stack string) {
+func (p DefaultProvider) ProcessUberstack(config model.Config, state *model.State, uberHome string,
+		uberstack model.Uberstack, env string, cmd string, exclude_stack string) {
 
-	fmt.Println("process_uberstack", uberstack.Name)
 	for i := 0; i < len(uberstack.Uberstacks); i++ {
 		name := uberstack.Uberstacks[i]
 		inner_uberstack := p.GetUberstack(uberHome, name)
-		p.ProcessUberstack(uberHome, inner_uberstack, env, cmd, exclude_stack)
+		p.ProcessUberstack(config, state, uberHome, inner_uberstack, env, cmd, exclude_stack)
 	}
 
 	for i := range uberstack.Stacks {
@@ -291,7 +254,7 @@ func (p DefaultProvider) ProcessUberstack(uberHome string, uberstack model.Ubers
                         --project-name %s \
                         %s`,
 			uberHome, stack, uberHome, stack, project, cmd)
-		env := getParametersFor(uberstack, env, "/state/state.yml")
+		env := getParametersFor(uberstack, env, state)
 		utils.Execute(command, env, "")
 	}
 }

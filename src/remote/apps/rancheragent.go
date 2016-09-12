@@ -8,7 +8,6 @@ import (
         "time"
         "utils"
         "log"
-	"io/ioutil"
 )
 
 const agent_version = "v1.0.2"
@@ -49,10 +48,19 @@ func identifyRancherEnvironment(rancherHostname, accessKey, secretKey string) st
                 req, _ := http.NewRequest("GET", rancherEnvUrl, nil)
                 req.SetBasicAuth(accessKey, secretKey)
                 res, err := client.Do(req)
-                utils.Check(err)
+		if (err != nil) {
+			time.Sleep(5*time.Second)
+			println("Waiting for Rancher...")
+			continue
+		}
+
                 body := rancherEnvironmentResponse{}
                 err = json.NewDecoder(res.Body).Decode(&body)
-                utils.Check(err)
+		if (err != nil) {
+			time.Sleep(5*time.Second)
+			println("Waiting for Rancher...")
+			continue
+		}
 
                 for i := range body.Data {
                         env := body.Data[i]
@@ -60,12 +68,6 @@ func identifyRancherEnvironment(rancherHostname, accessKey, secretKey string) st
                                 return env.Id
                         }
                 }
-		log.Println(err)
-		log.Println(body)
-
-		res, err = client.Do(req)
-		byteData, err := ioutil.ReadAll(res.Body)
-                log.Println(string(byteData))
 
                 log.Println("Environment not found, waiting")
                 time.Sleep(5 * time.Second)
@@ -116,7 +118,6 @@ func installRancherAgent(ip_address, labels, rancher_url string) {
                 labels,
                 agent_version,
                 rancher_url)
-        log.Println(command)
         utils.Execute(command, nil, "")
 	log.Println("Rancher agent installed")
 }

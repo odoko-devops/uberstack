@@ -19,11 +19,11 @@ func main() {
 	password := flag.String("password", "", "Login password")
 	//email    := flag.String("email", "", "Login user's email address")
 
-	cidr := flag.String("cidr", "", "Network CIDR")
-	publicIp := flag.String("publicip", "", "Host's Public IP")
-	hostName := flag.String("host", "", "Hostname for current host")
-
 	jenkinsHostname := flag.String("jenkins", "", "Jenkins hostname")
+
+	ip        := flag.String("ip", "", "IP for current host")
+	netmask   := flag.String("netmask", "", "Netmask for local network")
+	broadcast := flag.String("broadcast", "", "Broadcast address for local network")
 
 	flag.Parse()
 
@@ -51,14 +51,12 @@ func main() {
 
 	case "rancher-server":
 
-	case "vpn-server":
-		utils.Required(*cidr, "-cidr required")
-		utils.Required(*publicIp, "-publicip required")
-		utils.Required(*username, "-username required")
-		utils.Required(*hostName, "-host required")
-		apps.Vpn_RemoteInstall(*cidr, *publicIp, *username, *hostName)
-
+	case "virtualbox":
+		utils.Required(*ip, "-ip required")
+		utils.Required(*netmask, "-netmask required")
+		utils.Required(*broadcast, "-broadcast required")
+		apps.Virtualbox_Configure(*ip, *netmask, *broadcast)
 	default:
-		print("Unknown actiom: " + action)
+		println("Unknown actiom: " + action)
 	}
 }

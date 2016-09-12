@@ -10,6 +10,8 @@ import (
 	"github.com/kr/pty"
 	"time"
 	"os"
+	"net/http"
+	"runtime"
 )
 
 
@@ -49,6 +51,10 @@ func watchOutputStream(typ string, r bufio.Reader) {
 
 func prepareEnvironment(env Environment) []string {
 	if env != nil {
+		uberState := GetUberStateLenient()
+		if uberState != "" {
+			env["PATH"] = "/bin:/usr/bin:/usr/local/bin/:" + uberState + "/bin"
+		}
 		preparedEnv := make([]string, len(env))
 		i := 0
 		for k,v := range env {
@@ -61,8 +67,13 @@ func prepareEnvironment(env Environment) []string {
 	}
 }
 
+func splitFunc(c rune) bool {
+	return c == ' ' || c == '\n' || c == '\t' || c == '\\'
+}
+
 func Execute(command string, env Environment, dir string) {
-	cmd := exec.Command("bash", "-c", command)
+	args := strings.FieldsFunc(command, splitFunc)
+	cmd := exec.Command(args[0], args[1:]...)
 
 	stdout, _ := cmd.StdoutPipe()
 	stderr, _ := cmd.StderrPipe()
@@ -72,12 +83,12 @@ func Execute(command string, env Environment, dir string) {
 	if dir != "" {
 		cmd.Dir = dir
 	}
-
+	fmt.Printf("Executing %s\n", command)
 	cmd.Start()
-	stdoutReader := bufio.NewReader(stdout)
-	stderrReader := bufio.NewReader(stderr)
-	go watchOutputStream("stdout", *stdoutReader)
-	go watchOutputStream("stderr", *stderrReader)
+	stdOutReader := bufio.NewReader(stdout)
+	stdErrReader := bufio.NewReader(stderr)
+	go watchOutputStream("stdout", *stdOutReader)
+	go watchOutputStream("stderr", *stdErrReader)
 	cmd.Wait()
 }
 
@@ -85,7 +96,8 @@ func Execute(command string, env Environment, dir string) {
  * Execute a command, and return the output
  */
 func ExecuteAndRetrieve(command string, env Environment, dir string) string {
-	cmd := exec.Command("bash", "-c", command)
+	args := strings.FieldsFunc(command, splitFunc)
+	cmd := exec.Command(args[0], args[1:]...)
 	cmd.Env = prepareEnvironment(env)
 
 	if dir != "" {
@@ -101,7 +113,7 @@ func ExecuteAndRetrieve(command string, env Environment, dir string) string {
  * Execute a command on a remote Docker host
  */
 func ExecuteRemote(host, cmd string, env Environment, dir string) {
-	command := fmt.Sprintf(`docker-machine -s /state/machine ssh %s %s`, host, cmd)
+	command := fmt.Sprintf(`docker-machine -s %s/machine ssh %s %s`, GetUberState(), host, cmd)
 	Execute(command, env, dir)
 }
 
@@ -112,7 +124,8 @@ func sendToPty(input string, pty *os.File) {
 }
 
 func ExecuteWithInput(command, input string, env Environment, dir string) {
-	cmd := exec.Command("bash", "-c", command)
+	args := strings.FieldsFunc(command, splitFunc)
+	cmd := exec.Command(args[0], args[1:]...)
 
 	cmd.Env = prepareEnvironment(env)
 
@@ -126,50 +139,6 @@ func ExecuteWithInput(command, input string, env Environment, dir string) {
 	go sendToPty(input, f)
 	go io.Copy(os.Stdout, f)
 	cmd.Wait()
-}
-
-/***********************************************************************
- * Write commands to a script file for manual execution
- */
-func GetUberScript() string {
-	uberState := GetUberState()
-	return uberState + "/temp-uberscript.sh"
-}
-
-func ExtendScript(script string) {
-	isNew := !DoesUberScriptExist()
-
-	uberScript := GetUberScript()
-
-	var f *os.File
-	var err error
-	if (isNew) {
-		f, err = os.OpenFile(uberScript, os.O_CREATE|os.O_WRONLY, 0755)
-		Check(err)
-		_, err = f.WriteString("#!/bin/sh\n")
-		Check(err)
-	} else {
-		f, err = os.OpenFile(uberScript, os.O_APPEND|os.O_WRONLY, 0755)
-		Check(err)
-	}
-	_, err = f.WriteString(script)
-	Check(err)
-	f.Close()
-}
-
-func DoesUberScriptExist() bool {
-	uberScript := GetUberScript()
-	_, err := os.Stat(uberScript)
-	return err == nil
-}
-
-func ExecuteUberScript() {
-	Execute(GetUberScript(), nil, "")
-}
-
-func RemoveUberScript() {
-	uberScript := GetUberScript()
-	os.Remove(uberScript)
 }
 
 func GetUberState() string {
@@ -186,3 +155,91 @@ func GetUberState() string {
 	}
 	return uberState
 }
+
+func GetUberStateLenient() string {
+	uberState := os.Getenv("UBER_STATE")
+
+	if uberState == "" {
+
+		uberHome := os.Getenv("UBER_HOME")
+		if uberHome == "" {
+			return ""
+		}
+		uberState = uberHome + "/state"
+	}
+	return uberState
+}
+
+type Dependency struct {
+	Version string
+	Url string
+	ExtractCommand string
+}
+
+var dependencies = map[string]Dependency{
+	"docker-machine": {
+		Version: "v0.7.0",
+		Url: "https://github.com/docker/machine/releases/download/$VERSION/docker-machine-$OS-$ARCH2",
+	},
+	"rancher-compose": {
+		Version: "v0.8.6",
+		Url: "https://releases.rancher.com/compose/$VERSION/rancher-compose-$OS-$ARCH1-$VERSION.tar.gz",
+		ExtractCommand: "tar -C $BINARIES --strip-components=1 -xzf /tmp/download",
+	},
+	"terraform": {
+		Version: "0.6.16",
+		Url: "https://releases.hashicorp.com/terraform/$VERSION/terraform_$VERSION_$OS_$ARCH1.zip",
+		ExtractCommand: "unzip -q -d $BINARIES/ /tmp/download",
+	},
+}
+
+func downloadExecutable(url, filepath string) {
+	f, err := os.OpenFile(filepath, os.O_CREATE|os.O_WRONLY, 0755)
+	Check(err)
+	defer f.Close()
+
+	resp, err := http.Get(url)
+	Check(err)
+	defer resp.Body.Close()
+	_, err = io.Copy(f, resp.Body)
+	Check(err)
+	os.Chmod(filepath, 0755)
+
+}
+
+func Download(cmd string) {
+
+	dependency := dependencies[cmd]
+
+	dependencyPath, err := exec.LookPath(cmd)
+	if err == nil {
+		fmt.Printf("%s already in path\n", cmd)
+	} else {
+		dependencyPath = fmt.Sprintf("%s/bin/%s", GetUberState(), cmd)
+
+		binariesPath := GetUberState() + "/bin"
+		os.MkdirAll(binariesPath, 0755)
+		_, err = os.Stat(dependencyPath)
+		if err == nil {
+			fmt.Printf("%s already downloaded\n", cmd)
+		} else {
+			url := strings.Replace(dependency.Url, "$VERSION", dependency.Version, -1)
+			url = strings.Replace(url, "$OS", runtime.GOOS, -1)
+			url = strings.Replace(url, "$ARCH1", runtime.GOARCH, -1)
+			url = strings.Replace(url, "$ARCH2", "x86_64", -1)  // @todo Don't hardwire this
+
+			fmt.Printf("Downloading %s from %s\n", cmd, url)
+			if dependency.ExtractCommand == "" {
+				downloadExecutable(url, dependencyPath)
+			} else {
+				downloadExecutable(url, "/tmp/download")
+				command := strings.Replace(dependency.ExtractCommand, "$BINARIES", binariesPath, -1)
+				command = strings.Replace(command, "$VERSION", dependency.Version, -1)
+				fmt.Printf("Extracting...\n")
+				Execute(command, nil, "")
+			}
+		}
+	}
+}
+
+
