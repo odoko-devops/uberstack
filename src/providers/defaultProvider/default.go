@@ -1,7 +1,7 @@
 package defaultProvider
 
 import (
-	"installer/model"
+	"model"
 	"log"
 	"utils"
 	"fmt"
@@ -42,8 +42,10 @@ func (p DefaultProvider) RegenerateCerts(host model.HostConfig) {
 
 func (p DefaultProvider) UploadSelf(host model.HostConfig) {
 	log.Printf("Upload configuration utility to %s\n", host.Name)
-	command := fmt.Sprintf("docker-machine -s %s/machine scp bin/remote %s:",
-		utils.GetUberState(), host.Name)
+	//dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
+	//utils.Check(err)
+	command := fmt.Sprintf("docker-machine -s %s/machine scp %s/remote %s:",
+		utils.GetUberState(), "bin", host.Name)
 	utils.Execute(command, nil, "")
 }
 

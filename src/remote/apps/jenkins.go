@@ -3,7 +3,7 @@ package apps
 import (
 	"utils"
 	"fmt"
-	"installer/model"
+	"model"
 )
 
 func Jenkins_Install(config model.Config, hostConfig model.HostConfig, app model.AppConfig) error {

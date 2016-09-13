@@ -1,10 +1,10 @@
 package virtualbox
 
 import (
-	"installer/model"
+	"model"
 	"fmt"
 	"utils"
-	"installer/providers/defaultProvider"
+	"providers/defaultProvider"
 )
 
 type VirtualBox struct {

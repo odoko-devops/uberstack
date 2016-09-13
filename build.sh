@@ -34,7 +34,7 @@ if [ -z $IN_CONTAINER ]; then
   docker run -v $HERE/bin:/build -v $HERE/src:/odoko/golibs/src odoko/docker-stack-build IN_CONTAINER $ARGS
 else
   echo "Building local resources..."
-  GOOS=darwin GOARCH=amd64 go build -o /build/uberstack installer
+  GOOS=darwin GOARCH=amd64 go build -o /build/uberstack uberstack
   GOOS=darwin GOARCH=amd64 go build -o /build/foo foo 
 
   if [ "$BUILD_REMOTE" = "true" ]; then

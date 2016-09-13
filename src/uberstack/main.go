@@ -1,223 +1,178 @@
 package main
 
 import (
-	"io/ioutil"
-	"os"
 	"fmt"
-	"log"
 	"flag"
-	"gopkg.in/yaml.v2"
+	"model"
+	"log"
+	"providers/defaultProvider"
+	"providers/amazonec2"
+	"providers/virtualbox"
 	"strings"
-	"path/filepath"
+	"os"
 	"utils"
-	"installer/model"
 )
 
-/***********************************************************************
- * Uberstack type definitions
+/*
+  Sample usage (where binary is called 'launcher'):
+  	  uberstack init
+	  uberstack provider up amazonec2
+	  uberstack provider destroy amazonec2
+
+	  uberstack host up management
+	  uberstack host destroy management
+	  uberstack host up docker01
+
+	  uberstack provider up virtualbox
+	  uberstack host up local-management
+	  uberstack host up local-docker
+
+	  uberstack app up myapp local
+	  uberstack app up myapp dev
  */
 
-type uberstack_type struct {
-	Name         string
-	Stacks       []string
-	Uberstacks   []string
-	Required     []string
-	Environments map[string]utils.Environment
-}
+func CreateHost(config model.Config, state *model.State, provider model.Provider,
+		hostConfig model.HostConfig, skip *model.SkipList) {
 
-/***********************************************************************
- * Identify stacks within $UBER_HOME directory
- */
-func get_uberstacks(uber_home string) []string {
-	files, _ := ioutil.ReadDir(uber_home + "/uberstacks")
-	uberstacks := make([]string, 0, len(files))
-	for _, f := range files {
-		if strings.HasSuffix(f.Name(), ".yml") {
-			s := strings.Split(f.Name(), ".")
-			if len(s) == 2 && s[1] == "yml" {
-				uberstacks = uberstacks[0: len(uberstacks) + 1]
-				uberstacks[len(uberstacks) - 1] = s[0]
-			}
-		}
+	log.Printf("Creating host %s\n", hostConfig.Name)
+	defaultProvider := defaultProvider.DefaultProvider{}
+	providerConfig := model.GetProviderConfigForHost(config, hostConfig)
+
+	if !skip.Avoid(model.SkipHost) {
+		provider.HostUp(hostConfig, state)
+		defaultProvider.AddUbuntuToDockerGroup(hostConfig)
+		defaultProvider.RegenerateCerts(hostConfig)
 	}
-	return uberstacks
-}
 
-/***********************************************************************
- * Identify stacks within $UBER_HOME directory
- */
-func get_stacks(uber_home string) []string {
-	files, _ := ioutil.ReadDir(uber_home + "/stacks")
-	stacks := make([]string, 0, len(files))
-	for _, f := range files {
-		s := strings.Split(f.Name(), ".")
-		if len(s) == 1 {
-			stacks = stacks[0: len(stacks) + 1]
-			stacks[len(stacks) - 1] = s[0]
-		}
+	if !skip.Avoid(model.SkipUpload) {
+		defaultProvider.UploadSelf(hostConfig)
 	}
-	return stacks
-}
 
-/***********************************************************************
- * Read a single uberstack from its config yaml file
- */
-func get_uberstack(uber_home string, name string) uberstack_type {
-	bytes, err := ioutil.ReadFile(uber_home + "/uberstacks/" + name + ".yml")
-	utils.Check(err)
-	uberstack := uberstack_type{}
-	err = yaml.Unmarshal(bytes, &uberstack)
-	utils.Check(err)
-	return uberstack
-}
-
-/***********************************************************************
- * Execute ls command
- */
-func ls(uber_home string) {
-	fmt.Println("\nStacks:")
-	fmt.Println("-------")
-	stacks := get_stacks(uber_home)
-	for stack_id := range stacks {
-		fmt.Println(stacks[stack_id])
+	if !skip.Avoid(model.SkipApps) {
+		defaultProvider.StartApps(config, state, hostConfig, skip)
 	}
-	fmt.Println("\nUberstacks:")
-	fmt.Println("-----------")
-	uberstacks := get_uberstacks(uber_home)
-	for uber_id := range uberstacks {
-		fmt.Println(uberstacks[uber_id])
+	if hostConfig.RancherAgent && !skip.Avoid(model.SkipRancherAgent) {
+		defaultProvider.StartRancherAgent(config, state, providerConfig, hostConfig)
+	}
+
+}
+
+func DestroyHost(config model.Config, state *model.State, provider model.Provider, host model.HostConfig) {
+
+	completed, _ := provider.HostDestroy(host, state)
+	if !completed {
+		defaultProvider := defaultProvider.DefaultProvider{}
+		defaultProvider.HostDestroy(host)
+	}
+	log.Printf("Destroyed host %s\n", host.Name)
+}
+
+func ListHosts() {
+	defaultProvider := defaultProvider.DefaultProvider{}
+	defaultProvider.ListHosts()
+}
+
+func GetProviderEnvironment(state *model.State, provider model.ProviderConfig) {
+	env := model.GetRancherEnvironment(state, provider)
+	for k,v := range env {
+		fmt.Printf("export %s=%s\n", k, v)
 	}
 }
 
-/***********************************************************************
- * Build a suitable environment for execution
- */
-func get_parameters_for(uberstack uberstack_type, env string, state_file string) utils.Environment {
-	params := get_parameters_from_environment_and_uberstack(uberstack, env)
-	add_parameters_from_state(env, state_file, &params)
-	check_required(uberstack, params)
-	return params
-}
 
-func get_parameters_from_environment_and_uberstack(uberstack uberstack_type, env string) utils.Environment {
-	environ := os.Environ()
-	params := utils.Environment{}
-
-	for _, v := range environ {
-		s := strings.SplitN(v, "=", 2)
-		name := s[0]
-		value := s[1]
-		params[name] = value
-	}
-
-	for k, v := range uberstack.Environments[env] {
-		params[k] = v
-	}
-
-	return params
-}
-
-func add_parameters_from_state(env string, state_file string, params *utils.Environment) {
-	state := model.LoadState("/state/state.yml")
-
-	if env == "local" {
-		(*params)["RANCHER_ACCESS_KEY"] = state.Provider["virtualbox"].AccessKey
-		(*params)["RANCHER_SECRET_KEY"] = state.Provider["virtualbox"].SecretKey
-	} else {
-		(*params)["RANCHER_ACCESS_KEY"] = state.Provider["amazonec2"].AccessKey
-		(*params)["RANCHER_SECRET_KEY"] = state.Provider["amazonec2"].SecretKey
+func GetHostEnvironment(state *model.State, host model.HostConfig) {
+	env := model.GetDockerEnvironment(state, host)
+	for k,v := range env {
+		fmt.Printf("export %s=%s\n", k, v)
 	}
 }
 
-/***********************************************************************
- * Check for required variables
- */
-func check_required(uberstack uberstack_type, params utils.Environment) {
+func GetProvider(config model.Config, state *model.State, name string) model.Provider {
 
-	for i := range uberstack.Required {
-		required := uberstack.Required[i]
-		_, ok := params[required]
-		if !ok {
-			log.Fatal("Required parameter: ", required)
-			os.Exit(1)
-		}
+	var provider model.Provider
+
+	switch name {
+	case "amazonec2":
+		provider = &amazonec2.Amazonec2{}
+	case "virtualbox":
+		provider = &virtualbox.VirtualBox{}
+	default:
+		log.Panic("Unknown provider: ", name)
+	}
+	providerConfig := model.GetProviderConfig(config, name)
+	provider.Configure(config, state, providerConfig)
+	return provider
+}
+
+func GetHostProvider(config model.Config, state *model.State, hostConfig model.HostConfig) model.Provider {
+	return GetProvider(config, state, hostConfig.Provider)
+}
+
+func processProvider(config model.Config, state *model.State, args []string, skip *model.SkipList) {
+	action := args[0]
+	providerName := args[1]
+
+	switch action {
+	case "up":
+		provider := GetProvider(config, state, providerName)
+		provider.InfrastructureUp()
+	case "destroy":
+		provider := GetProvider(config, state, providerName)
+		provider.InfrastructureDestroy()
+	case "env":
+		providerConfig := model.GetProviderConfig(config, providerName)
+		GetProviderEnvironment(state, providerConfig)
+	default:
+		log.Printf("Unknown action: %s\n", action)
 	}
 }
 
-/***********************************************************************
- * Process any referenced Uberstacks
- */
-func process_uberstack(uber_home string, uberstack uberstack_type, env string, cmd string, exclude_stack string) {
+func processHost(config model.Config, state *model.State, args []string, skip *model.SkipList) {
+	action := args[0]
 
-	fmt.Println("process_uberstack", uberstack.Name)
-	for i := 0; i < len(uberstack.Uberstacks); i++ {
-		name := uberstack.Uberstacks[i]
-		inner_uberstack := get_uberstack(uber_home, name)
-		process_uberstack(uber_home, inner_uberstack, env, cmd, exclude_stack)
-	}
-
-	for i := range uberstack.Stacks {
-		name := uberstack.Stacks[i]
-		if name == exclude_stack {
-			continue
-		}
-		project := name
-		stack := name
-
-		s := strings.SplitN(name, ":", 2)
-		if len(s) == 2 {
-			project = s[0]
-			stack = s[1]
-		}
-		command := fmt.Sprintf(`rancher-compose --file %s/stacks/%s/docker-compose.yml \
-                        --rancher-file %s/stacks/%s/rancher-compose.yml \
-                        --project-name %s \
-                        %s`,
-			uber_home, stack, uber_home, stack, project, cmd)
-		env := get_parameters_for(uberstack, env, "/state/state.yml")
-		utils.Execute(command, env, "")
+	switch action {
+	case "up":
+		hostName := args[1]
+		hostConfig := model.GetHostConfig(config, hostName)
+		provider := GetHostProvider(config, state, hostConfig)
+		CreateHost(config, state, provider, hostConfig, skip)
+	case "destroy", "rm":
+		hostName := args[1]
+		hostConfig := model.GetHostConfig(config, hostName)
+		provider := GetHostProvider(config, state, hostConfig)
+		DestroyHost(config, state, provider, hostConfig)
+	case "replace", "re":
+		hostName := args[1]
+		hostConfig := model.GetHostConfig(config, hostName)
+		provider := GetHostProvider(config, state, hostConfig)
+		DestroyHost(config, state, provider, hostConfig)
+		CreateHost(config, state, provider, hostConfig, skip)
+	case "ls", "list":
+		ListHosts()
+	case "env":
+		hostName := args[1]
+		hostConfig := model.GetHostConfig(config, hostName)
+		GetHostEnvironment(state, hostConfig)
+	default:
+		log.Printf("Unknown host action: %s\n", action)
 	}
 }
 
-func main() {
-
-	uber_home := os.Getenv("UBER_HOME")
-	if uber_home == "" {
-		dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
-		utils.Check(err)
-		uber_home = dir
-	}
-
-	rancher_url := os.Getenv("RANCHER_URL")
-	fmt.Printf("Using UBER_HOME=%v\n", uber_home)
-	fmt.Printf("Using RANCHER_URL=%v\n", rancher_url)
-
-	excludePtr := flag.String("exclude", "", "Exclude stack")
-	flag.Parse()
-
-	/*
-	if len(flag.Args()) < 3 {
-	  flag.Usage()
-	  os.Exit(1)
-	}
-	*/
-	args := flag.Args()
-	arg_count := len(args)
-	if arg_count == 0 {
-		flag.Usage()
+func processApp(config model.Config, state *model.State, args []string, skip *model.SkipList) {
+	uberHome := os.Getenv("UBER_HOME")
+	if uberHome == "" {
+		println("Please set UBER_HOME.")
 		os.Exit(1)
 	}
+
+	if len(args) < 3 {
+		println("Usage: app <action> <uberstack-name> <environment name>")
+		os.Exit(1)
+	}
+
 	action := args[0]
-	uberstack_name := ""
-	environment := ""
-	if len(args) > 1 {
-		uberstack_name = args[1]
-	}
-	if len(args) > 2 {
-		environment = args[2]
-	} else {
-		environment = "local"
-	}
+	uberstackName := args[1]
+	environment := args[2]
 
 	cmd := ""
 	desc := ""
@@ -239,24 +194,58 @@ func main() {
 			var answer string
 			fmt.Print("Retype uberstack name to confirm deletion: ")
 			fmt.Scanln(&answer)
-			if answer != uberstack_name {
+			if answer != uberstackName {
 				fmt.Println("Confirmation failed, quitting")
 				os.Exit(1)
 			}
 		}
 		cmd = "rm --force"
 		desc = "Removing"
-	case "ls":
-		ls(uber_home)
-		os.Exit(0)
 	default:
 		fmt.Printf("Unknown action: %s", action)
 		os.Exit(1)
 	}
-	fmt.Println("Exclude:", *excludePtr)
-	fmt.Println("cmd:", cmd)
-	fmt.Println("desc:", desc)
-	fmt.Println("uberstack:", uberstack_name)
-	uberstack := get_uberstack(uber_home, uberstack_name)
-	process_uberstack(uber_home, uberstack, environment, cmd, *excludePtr)
+	defaultProvider := defaultProvider.DefaultProvider{}
+	uberstack := defaultProvider.GetUberstack(uberHome, uberstackName)
+	fmt.Printf("%s uberstack %s\n", desc, uberstack.Name)
+
+	defaultProvider.ProcessUberstack(config, state, uberHome, uberstack, environment, cmd, "")
+
+}
+
+func processInit(config model.Config, state *model.State, args []string, skip *model.SkipList) {
+	utils.Download("docker-machine")
+	utils.Download("rancher-compose")
+	utils.Download("terraform")
+}
+
+func main() {
+
+	skipString := flag.String("skip", "", "Process to skip")
+	flag.Parse()
+
+	uberState := utils.GetUberState()
+	configFile := uberState + "/config.yml"
+	stateFile := uberState + "/state.yml"
+	config := model.LoadConfig(configFile)
+	state := model.LoadState(stateFile)
+
+	skipOptions := new(model.SkipList)
+	skipOptions = skipOptions.Configure(*skipString)
+
+	group := flag.Arg(0)
+	switch group {
+	case "init":
+		processInit(config, state, flag.Args()[1:], skipOptions)
+	case "provider":
+		processProvider(config, state, flag.Args()[1:], skipOptions)
+	case "host":
+		processHost(config, state, flag.Args()[1:], skipOptions)
+	case "app":
+		processApp(config, state, flag.Args()[1:], skipOptions)
+	default:
+		fmt.Printf("Unknown group: %s\n", group)
+	}
+
+	model.SaveState(stateFile, state)
 }

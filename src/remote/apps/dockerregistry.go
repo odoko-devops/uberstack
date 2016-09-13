@@ -3,7 +3,7 @@ package apps
 import (
 	"fmt"
 	"utils"
-	"installer/model"
+	"model"
 )
 
 func Registry_Install(config model.Config, host model.HostConfig, app model.AppConfig) {

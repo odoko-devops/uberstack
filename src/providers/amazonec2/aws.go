@@ -3,7 +3,7 @@ package amazonec2
 import (
 	"utils"
 	"log"
-	"installer/model"
+	"model"
 	"fmt"
 	"io/ioutil"
 	"os"

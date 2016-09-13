@@ -1,7 +1,7 @@
 package apps
 
 import (
-	"installer/model"
+	"model"
 	"log"
 	"utils"
 	"fmt"
