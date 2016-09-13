@@ -40,6 +40,5 @@ else
   if [ "$BUILD_REMOTE" = "true" ]; then
     echo "Building remote resources..."
     GOOS=linux GOARCH=amd64 go build -o /build/remote remote
-    GOOS=linux GOARCH=amd64 go build -o /build/rancheragent rancheragent
   fi
 fi
