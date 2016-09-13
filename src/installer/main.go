@@ -75,7 +75,7 @@ func ListHosts() {
 func GetProviderEnvironment(state *model.State, provider model.ProviderConfig) {
 	env := model.GetRancherEnvironment(state, provider)
 	for k,v := range env {
-		fmt.Sprintf("export %s=%s\n", k, v)
+		fmt.Printf("export %s=%s\n", k, v)
 	}
 }
 
@@ -141,6 +141,12 @@ func processHost(config model.Config, state *model.State, args []string, skip *m
 		hostConfig := model.GetHostConfig(config, hostName)
 		provider := GetHostProvider(config, state, hostConfig)
 		DestroyHost(config, state, provider, hostConfig)
+	case "replace", "re":
+		hostName := args[1]
+		hostConfig := model.GetHostConfig(config, hostName)
+		provider := GetHostProvider(config, state, hostConfig)
+		DestroyHost(config, state, provider, hostConfig)
+		CreateHost(config, state, provider, hostConfig, skip)
 	case "ls", "list":
 		ListHosts()
 	case "env":
