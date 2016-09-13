@@ -10,8 +10,6 @@ ENV GOPATH=/odoko/golibs
 ENV PATH=$PATH:/usr/local/go/bin:$GOPATH/bin
 
 WORKDIR /odoko
-ADD /src /odoko/golibs/src
-ADD build.sh /odoko
 RUN go get gopkg.in/yaml.v2 github.com/kr/pty
 
 ENTRYPOINT ["./build.sh"]
