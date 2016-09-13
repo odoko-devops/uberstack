@@ -195,7 +195,8 @@ func (aws *Amazonec2) makeElasticIPAssociation(state *model.State, awsHost Amazo
 	} else {
 		command := fmt.Sprintf("docker-machine -s %s/machine inspect %s -f '{{.Driver.IPAddress}}'",
 			utils.GetUberState(), awsHost.host.Name)
-		hostState["public-ip"] = utils.ExecuteAndRetrieve(command, nil, "")
+		ip := strings.Replace(utils.ExecuteAndRetrieve(command, nil, ""), "'", "", -1)
+		hostState["public-ip"] = ip
 	}
 	return nil
 }
