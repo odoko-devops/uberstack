@@ -109,7 +109,7 @@ func installRancherAgent(ip_address, labels, rancher_url string) {
         command := fmt.Sprintf(
             `sudo docker run \
             -e CATTLE_AGENT_IP=%v \
-            -e CATTLE_HOST_LABELS="%s" \
+            -e CATTLE_HOST_LABELS=%s \
             -d --privileged --name rancher-bootstrap \
             -v /var/run/docker.sock:/var/run/docker.sock \
             -v /var/lib/rancher:/var/lib/rancher \
