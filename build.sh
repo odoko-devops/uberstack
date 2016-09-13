@@ -1,6 +1,9 @@
 #!/bin/bash -e
 
 ARGS=$*
+
+QUIET=-q
+
 while [ $# -gt 0 ]; do
   case $1 in
     IN_CONTAINER)
@@ -9,11 +12,14 @@ while [ $# -gt 0 ]; do
     build)
       BUILD_CONTAINER=true
       ;;
-    local)
-      BUILD_LOCAL=true
+    remote)
+      BUILD_REMOTE=true
       ;;
     push)
       PUSH_IMAGE=true
+      ;;
+    verbose)
+      QUIET=
       ;;
   esac
   shift
@@ -22,21 +28,18 @@ done
 if [ -z $IN_CONTAINER ]; then
   HERE=$(cd `dirname $0`;pwd)
   if [ "$BUILD_CONTAINER" != "" ]; then
-    docker build -t odoko/docker-stack-build -f Dockerfile.build .
+    docker build $QUIET -t odoko/docker-stack-build .
   fi
 
   docker run -v $HERE/bin:/build -v $HERE/src:/odoko/golibs/src odoko/docker-stack-build IN_CONTAINER $ARGS
-  echo "Building container..."
-  docker build -t odoko/docker-stack .
-  if [ "$PUSH_IMAGE" != "" ]; then
-    docker push odoko/docker-stack
-  fi
 else
-  if [ "$BUILD_LOCAL" = "true" ]; then
-    echo "Building local resources..."
-    GOOS=darwin GOARCH=amd64 go build -o /build/uberstack local 
-  fi
+  echo "Building local resources..."
+  GOOS=darwin GOARCH=amd64 go build -o /build/uberstack installer
+  GOOS=darwin GOARCH=amd64 go build -o /build/foo foo 
 
-  echo "Building container resources..."
-  GOBIN=/build go install installer remote rancheragent 
+  if [ "$BUILD_REMOTE" = "true" ]; then
+    echo "Building remote resources..."
+    GOOS=linux GOARCH=amd64 go build -o /build/remote remote
+    GOOS=linux GOARCH=amd64 go build -o /build/rancheragent rancheragent
+  fi
 fi
