@@ -43,7 +43,7 @@ func (v *VirtualBox) HostUp(host model.HostConfig, state *model.State) error {
 
 	defaultProvider := defaultProvider.DefaultProvider{}
 	defaultProvider.UploadSelf(host)
-	command = fmt.Sprintf("./remote -ip=%s -broadcast=%s -netmask=%s virtualbox",
+	command = fmt.Sprintf("./uberstack-remote-agent -ip=%s -broadcast=%s -netmask=%s virtualbox",
 		host.Config["ip"], v.Broadcast, v.NetMask)
 	utils.ExecuteRemote(host.Name, command, nil, "")
 

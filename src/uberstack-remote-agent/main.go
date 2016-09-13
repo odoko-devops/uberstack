@@ -4,7 +4,7 @@ import (
 	"flag"
 	"utils"
 	"strings"
-	"/apps"
+	"apps"
 )
 
 func main() {

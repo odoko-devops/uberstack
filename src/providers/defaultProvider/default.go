@@ -9,7 +9,8 @@ import (
 	"os"
 	"io/ioutil"
 	"gopkg.in/yaml.v2"
-	"remote/apps"
+	"apps"
+	"os/exec"
 )
 
 type DefaultProvider struct {
@@ -42,10 +43,13 @@ func (p DefaultProvider) RegenerateCerts(host model.HostConfig) {
 
 func (p DefaultProvider) UploadSelf(host model.HostConfig) {
 	log.Printf("Upload configuration utility to %s\n", host.Name)
-	//dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
-	//utils.Check(err)
-	command := fmt.Sprintf("docker-machine -s %s/machine scp %s/remote %s:",
-		utils.GetUberState(), "bin", host.Name)
+	path, err := exec.LookPath("uberstack-remote-agent")
+	if err != nil {
+		fmt.Println("Cannot locate uberstack-remote-agent in your PATH. Please correct and retry.")
+		os.Exit(1)
+	}
+	command := fmt.Sprintf("docker-machine -s %s/machine scp %s %s:",
+		utils.GetUberState(), path, host.Name)
 	utils.Execute(command, nil, "")
 }
 
@@ -91,7 +95,7 @@ func (p DefaultProvider) StartRancherAgent(config model.Config, state *model.Sta
 	}
 
 	providerState := state.Provider[provider.Name]
-	command := fmt.Sprintf(`./remote \
+	command := fmt.Sprintf(`./uberstack-remote-agent \
 	                   -interface=%s \
 	                   -rancher=%s \
 	                   -access_key=%s \
