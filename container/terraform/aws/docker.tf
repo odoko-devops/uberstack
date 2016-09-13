@@ -1,4 +1,4 @@
-resource "aws_security_group" "management" {
+resource "aws_security_group" "docker-hosts" {
   name = "docker-hosts"
   description = "Security group for Docker Hosts"
   vpc_id = "${aws_vpc.default.id}"
