@@ -1,11 +1,7 @@
-terraform.tfstate
-terraform.tfstate.backup
-terraform.tfvars
-/config.yml
 /state/*
 !/state/dummy.txt
 /.idea
-/build
+/bin
 /src/pkg
-/tmp
 /pkg
+/tmp
