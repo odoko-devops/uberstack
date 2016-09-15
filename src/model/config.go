@@ -17,6 +17,7 @@ type ProviderConfig struct {
 	Type string
 	Name string
 	Config map[string]string
+	Terraform []string `yaml:"terraform-resources"`
 }
 
 type RealmConfig struct {
@@ -38,6 +39,8 @@ type HostConfig struct {
 	RancherAgent bool `yaml:"rancher-agent"`
 	Apps []AppConfig
 	Labels map[string] string
+	TerraformBefore []string `yaml:"terraform-resources-before"`
+	TerraformAfter []string `yaml:"terraform-resources-after"`
 }
 
 type AppConfig struct {

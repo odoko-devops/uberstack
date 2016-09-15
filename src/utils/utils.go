@@ -12,6 +12,9 @@ import (
 	"os"
 	"net/http"
 	"runtime"
+	"io/ioutil"
+	"text/template"
+	"bytes"
 )
 
 
@@ -22,7 +25,8 @@ type Environment map[string]string
  */
 func Check(err error) {
 	if err != nil {
-		log.Fatal(err);
+		log.Fatal(err)
+		fmt.Println(err)
 		panic(err)
 	}
 }
@@ -96,6 +100,7 @@ func Execute(command string, env Environment, dir string) {
  * Execute a command, and return the output
  */
 func ExecuteAndRetrieve(command string, env Environment, dir string) string {
+	fmt.Printf("Execute (with retrieve) %s\n", command)
 	args := strings.FieldsFunc(command, splitFunc)
 	cmd := exec.Command(args[0], args[1:]...)
 	cmd.Env = prepareEnvironment(env)
@@ -243,3 +248,56 @@ func Download(cmd string) {
 }
 
 
+func TerraformExport(config, providerName, name string, params map[string]string) {
+	dir := fmt.Sprintf("%s/terraform/%s", GetUberState(), providerName)
+	err := os.MkdirAll(dir, 0755)
+	Check(err)
+
+	path := fmt.Sprintf("%s/%s", dir, name)
+
+
+	configTemplate, err := template.New("terraform").Parse(config)
+	Check(err)
+
+	buf := bytes.Buffer{}
+	configTemplate.Execute(&buf, params)
+
+	err = ioutil.WriteFile(path, buf.Bytes(), 0644)
+	Check(err)
+}
+
+func TerraformApply(providerName string, resources []string, env Environment) {
+	path := fmt.Sprintf("%s/terraform/%s", GetUberState(), providerName)
+
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		fmt.Printf("Cannot apply terraform config - cannot find %s\n", path)
+		os.Exit(1)
+  	}
+
+	resourceTargets := make([]string, len(resources))
+	for i, resource := range resources {
+		resourceTargets[i] = "-target=" + resource
+	}
+	command := "terraform apply -refresh=true " + strings.Join(resourceTargets, " ")
+	Execute(command, env, path)
+}
+
+func TerraformOutput(providerName string, output string) string {
+	path := fmt.Sprintf("%s/terraform/%s", GetUberState(), providerName)
+	command := fmt.Sprintf("terraform output %s", output)
+	return ExecuteAndRetrieve(command, nil, path)
+}
+
+func TerraformDestroy(name string, env Environment) {
+	path := fmt.Sprintf("%s/terraform/%s", GetUberState(), name)
+	command := fmt.Sprintf("terraform destroy -state=%s/terraform.tfstate -force", path)
+	Execute(command, env, path)
+}
+
+func TerraformRemoveState(providerName string) {
+	uberState := GetUberState()
+	path1 := fmt.Sprintf("%s/terraform/%s/terraform.tfstate", uberState, providerName)
+	path2 := fmt.Sprintf("%s/terraform/%s/terraform.tfstate.backup", uberState, providerName)
+	os.Remove(path1)
+	os.Remove(path2)
+}

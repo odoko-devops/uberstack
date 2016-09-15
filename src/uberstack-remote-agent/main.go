@@ -5,6 +5,7 @@ import (
 	"utils"
 	"strings"
 	"apps"
+	"fmt"
 )
 
 func main() {
@@ -18,6 +19,9 @@ func main() {
 	username := flag.String("username", "", "Login username")
 	password := flag.String("password", "", "Login password")
 	//email    := flag.String("email", "", "Login user's email address")
+
+	cidr := flag.String("cidr", "", "CIDR for VPN")
+	publicIp := flag.String("publicIp", "", "Public IP for VPN server")
 
 	jenkinsHostname := flag.String("jenkins", "", "Jenkins hostname")
 
@@ -49,8 +53,13 @@ func main() {
 		utils.Required(*jenkinsHostname, "-jenkins required")
 		//apps.Proxy_RemoteInstall(*jenkinsHostname, *rancherHostname)
 
-	case "rancher-server":
-
+	case "vpn-server":
+		utils.Required(*cidr, "-cidr required")
+		utils.Required(*publicIp, "-publicIp required")
+		utils.Required(*username, "-username required")
+		utils.Required(*password, "-password required")
+		apps.Vpn_RemoteInstall(*cidr, *publicIp, *username, *password)
+fmt.Println("Remote vpn-server complete")
 	case "virtualbox":
 		utils.Required(*ip, "-ip required")
 		utils.Required(*netmask, "-netmask required")

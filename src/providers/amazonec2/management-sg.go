@@ -1,9 +1,15 @@
-/*
+package amazonec2
+
+var terraformManagementSecurityGroup =`
+
 resource "aws_eip_association" "management" {
-  instance_id = "${aws_instance.management.id}"
-  allocation_id = "${var.eip_alloc}"
+  instance_id = "${var.instance_id}"
+  allocation_id = "${var.elastic_ip_allocation}"
 }
-*/
+
+output "management_public_ip" {
+  value = "${aws_eip_association.management.public_ip}"
+}
 
 resource "aws_security_group" "management" {
   name = "management-tools"
@@ -67,4 +73,5 @@ resource "aws_security_group" "management" {
     Name = "management-tools" 
   }
 }
+`
 

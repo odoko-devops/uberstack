@@ -113,10 +113,13 @@ func processProvider(config model.Config, state *model.State, args []string, ski
 	providerName := args[1]
 
 	switch action {
+	case "sample":
+		provider := GetProvider(config, state, providerName)
+		provider.SampleConfiguration()
 	case "up":
 		provider := GetProvider(config, state, providerName)
 		provider.InfrastructureUp()
-	case "destroy":
+	case "destroy", "rm":
 		provider := GetProvider(config, state, providerName)
 		provider.InfrastructureDestroy()
 	case "env":

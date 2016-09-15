@@ -19,6 +19,11 @@ func (v *VirtualBox) Configure(config model.Config, state *model.State, provider
 	v.Broadcast = provider.Config["broadcast"]
 	return nil
 }
+
+func (v *VirtualBox) SampleConfiguration() error {
+	return nil
+}
+
 func (v *VirtualBox) InfrastructureUp() error {
 	println("Nothing to do for Virtualbox Infrastructure")
 	return nil

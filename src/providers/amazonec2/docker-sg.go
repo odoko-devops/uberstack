@@ -1,3 +1,7 @@
+package amazonec2
+
+var terraformDockerSecurityGroup =`
+
 resource "aws_security_group" "docker-hosts" {
   name = "docker-hosts"
   description = "Security group for Docker Hosts"
@@ -49,4 +53,5 @@ resource "aws_security_group" "docker-hosts" {
     Name = "docker-hosts" 
   }
 }
+`
 
