@@ -9,6 +9,7 @@ import (
 type State struct {
 	Provider      map[string]RancherAccess
 	ProviderState map[string]ProviderState
+	TerraformState map[string]ProviderState
 	HostState     map[string]HostState
 }
 

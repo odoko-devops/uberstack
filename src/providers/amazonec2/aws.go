@@ -101,12 +101,14 @@ func (aws *Amazonec2) InfrastructureUp() error {
 	utils.TerraformApply(aws.provider.Name, aws.provider.Terraform, aws.terraformConfig())
 
 	aws.vpcId = utils.TerraformOutput(aws.provider.Name, "vpc_id")
-	aws.subnetId = utils.TerraformOutput(aws.provider.Name, "subnet_id")
 
 	providerState := aws.state.ProviderState[aws.provider.Name]
 	providerState["vpcId"] = aws.vpcId
 	providerState["subnetId"] = aws.subnetId
 
+	for _, output := range aws.provider.TerraformOutputs {
+		model.SetTerraformState(aws.state, aws.provider.Name, output, utils.TerraformOutput(aws.provider.Name, output))
+	}
 	return nil
 }
 
@@ -123,6 +125,11 @@ func (aws *Amazonec2) HostUp(hostConfig model.HostConfig, state *model.State) er
 
 	env := aws.terraformConfig()
 	utils.TerraformApply(aws.provider.Name, hostConfig.TerraformBefore, env)
+
+	for _, output := range hostConfig.TerraformOutputsBefore {
+		model.SetTerraformState(state, hostConfig.Provider, output, utils.TerraformOutput(aws.provider.Name, output))
+	}
+
 	awsHost := aws.hosts[hostConfig.Name]
 	aws.createHost(awsHost)
 	awsHost.instanceId = aws.getInstanceId(awsHost)
@@ -135,6 +142,9 @@ func (aws *Amazonec2) HostUp(hostConfig model.HostConfig, state *model.State) er
 	}
 
 	utils.TerraformApply(aws.provider.Name, hostConfig.TerraformAfter, env)
+	for _, output := range hostConfig.TerraformOutputsAfter {
+		model.SetTerraformState(state, hostConfig.Provider, output, utils.TerraformOutput(aws.provider.Name, output))
+	}
 
 	if _, ok := hostConfig.Config["elastic_ip_allocation"]; ok {
 		fmt.Println("Getting EIP address")
@@ -179,7 +189,7 @@ func (aws *Amazonec2) createHost(host Amazonec2Host) {
 		host.securityGroup,
 		aws.region,
 		aws.zone,
-		aws.subnetId,
+		model.GetHostConfigValue(host.host, aws.state, "subnet"),
 		host.host.Name,
 		aws.sshKeyPath,
 		host.host.Name)

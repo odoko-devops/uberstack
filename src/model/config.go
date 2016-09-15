@@ -5,6 +5,8 @@ import (
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"fmt"
+	"text/template"
+	"bytes"
 )
 
 type Config struct {
@@ -18,6 +20,7 @@ type ProviderConfig struct {
 	Name string
 	Config map[string]string
 	Terraform []string `yaml:"terraform-resources"`
+	TerraformOutputs []string `yaml:"terraform-outputs"`
 }
 
 type RealmConfig struct {
@@ -41,6 +44,8 @@ type HostConfig struct {
 	Labels map[string] string
 	TerraformBefore []string `yaml:"terraform-resources-before"`
 	TerraformAfter []string `yaml:"terraform-resources-after"`
+	TerraformOutputsBefore []string `yaml:"terraform-outputs-before"`
+	TerraformOutputsAfter []string `yaml:"terraform-outputs-after"`
 }
 
 type AppConfig struct {
@@ -117,6 +122,40 @@ func GetRancherEnvironment(state *State, provider ProviderConfig) utils.Environm
 	}
 	return env
 }
+
+func GetHostConfigValue(host HostConfig, state *State, name string) string {
+	value := host.Config[name]
+	configTemplate, err := template.New(name).Parse(value)
+	utils.Check(err)
+	buf := bytes.Buffer{}
+	params := map[string]interface{}{
+		"terraform": state.TerraformState[host.Provider],
+	}
+	configTemplate.Execute(&buf, params)
+	return buf.String()
+}
+
+func GetProviderConfigValue(provider ProviderConfig, state *State, name string) string {
+	value := provider.Config[name]
+	configTemplate, err := template.New(name).Parse(value)
+	utils.Check(err)
+	buf := bytes.Buffer{}
+	params := map[string]interface{}{
+		"terraform": state.TerraformState[provider.Name],
+	}
+	configTemplate.Execute(&buf, params)
+	return buf.String()
+}
+
+func SetTerraformState(state *State, provider, output, value string) {
+	terraformState := state.TerraformState[provider]
+	if terraformState == nil {
+		terraformState = ProviderState{}
+	}
+	terraformState[output] = value
+	state.TerraformState[provider] = terraformState
+}
+
 type Uberstack struct {
 	Name         string
 	Stacks       []string
