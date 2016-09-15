@@ -27,15 +27,12 @@ func Vpn_Install(config model.Config, state *model.State, hostConfig model.HostC
 		authRealm.Users[0].Password)
 
 	utils.ExecuteRemote(hostConfig.Name, command, nil, "")
-	fmt.Println("RETURNED FROM REMOTE")
 
 	command = fmt.Sprintf("docker-machine -s %s/machine ssh %s cat %s.ovpn",
 		utils.GetUberState(), hostConfig.Name, username)
-fmt.Printf("COMMAND: %s", command)
+
 	ovpn := utils.ExecuteAndRetrieve(command, env, "")
-	fmt.Printf("OVPN done\n");
 	filename := fmt.Sprintf("%s/%s.ovpn", utils.GetUberState(), username)
-	fmt.Printf("filename: %s\n", filename)
 	err := ioutil.WriteFile(filename, []byte(ovpn), 0644)
 	utils.Check(err)
 	fmt.Printf("Changed ovpn\n")

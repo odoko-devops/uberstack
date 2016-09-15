@@ -150,14 +150,13 @@ func (aws *Amazonec2) HostUp(hostConfig model.HostConfig, state *model.State) er
 		fmt.Println("Getting EIP address")
 		outputName := fmt.Sprintf("%s_public_ip", hostConfig.Name)
 		hostState["public-ip"] = utils.TerraformOutput(hostConfig.Provider, outputName)
-		fmt.Printf("Public IP for %s = %s", hostConfig.Name, hostState["public-ip"])
 	} else {
 		fmt.Println("Retrieving IP from docker-machine")
 		command := fmt.Sprintf("docker-machine -s %s/machine inspect %s -f '{{.Driver.IPAddress}}'",
 			utils.GetUberState(), awsHost.host.Name)
 		hostState["public-ip"] = strings.Replace(utils.ExecuteAndRetrieve(command, nil, ""), "'", "", -1)
 	}
-	fmt.Printf("Public IP for %s = %s", hostConfig.Name, hostState["public-ip"])
+	fmt.Printf("Public IP for %s = %s\n", hostConfig.Name, hostState["public-ip"])
 	state.HostState[hostConfig.Name] = hostState
 
 	return nil
