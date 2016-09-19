@@ -290,7 +290,7 @@ func TerraformOutput(providerName string, output string) string {
 
 func TerraformDestroy(name string, env Environment) {
 	path := fmt.Sprintf("%s/terraform/%s", GetUberState(), name)
-	command := fmt.Sprintf("terraform destroy -state=%s/terraform.tfstate -force", path)
+	command := fmt.Sprintf("terraform destroy -state=%s/terraform.tfstate -refresh=true -force", path)
 	Execute(command, env, path)
 }
 
