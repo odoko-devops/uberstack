@@ -194,10 +194,7 @@ func processApp(config model.Config, state *model.State, args []string, skip *mo
 		desc = "Rolling back"
 	case "rm":
 		if environment != "local" {
-			var answer string
-			fmt.Print("Retype uberstack name to confirm deletion: ")
-			fmt.Scanln(&answer)
-			if answer != uberstackName {
+			if utils.Confirm("Retype uberstack name to confirm deletion: ", uberstackName) {
 				fmt.Println("Confirmation failed, quitting")
 				os.Exit(1)
 			}
@@ -222,6 +219,11 @@ func processInit(config model.Config, state *model.State, args []string, skip *m
 	utils.Download("terraform")
 }
 
+func processSample(config model.Config, state *model.State, args []string, skip *model.SkipList) {
+	defaultProvider := defaultProvider.DefaultProvider{}
+	defaultProvider.GenerateSampleConfiguration()
+}
+
 func main() {
 
 	skipString := flag.String("skip", "", "Process to skip")
@@ -240,6 +242,8 @@ func main() {
 	switch group {
 	case "init":
 		processInit(config, state, flag.Args()[1:], skipOptions)
+	case "sample":
+		processSample(config, state, flag.Args()[1:], skipOptions)
 	case "provider":
 		processProvider(config, state, flag.Args()[1:], skipOptions)
 	case "host":

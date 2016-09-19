@@ -301,3 +301,14 @@ func TerraformRemoveState(providerName string) {
 	os.Remove(path1)
 	os.Remove(path2)
 }
+
+func Ask(message string) string {
+	var answer string
+	fmt.Printf("%s: ", message)
+	fmt.Scanln(&answer)
+	return answer
+}
+
+func Confirm(message, expected string) bool {
+	return Ask(message) == expected
+}
