@@ -26,8 +26,8 @@ vpc_cidr: 10.128.0.0/16
 public_cidr: 10.128.0.0/24
 private_cidr: 10.128.1.0/24
 ssh_keypath: id_rsa
-access_key: AKIAJ2MGU55FFVEILEXA
-secret_key: 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
+access_key: XXXXXXXXXXXXXXXXXXXX
+secret_key: XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 terraform-resources:
   - aws_vpc.default
   - aws_internet_gateway.default
