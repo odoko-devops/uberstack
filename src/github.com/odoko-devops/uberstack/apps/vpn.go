@@ -1,9 +1,9 @@
 package apps
 
 import (
-	"model"
+	"github.com/odoko-devops/uberstack/model"
 	"log"
-	"utils"
+	"github.com/odoko-devops/uberstack/utils"
 	"fmt"
 	"strings"
 	"text/template"

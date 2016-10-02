@@ -2,8 +2,8 @@ package apps
 
 import (
 	"fmt"
-	"utils"
-	"model"
+	"github.com/odoko-devops/uberstack/utils"
+	"github.com/odoko-devops/uberstack/model"
 )
 
 func Registry_Install(config model.Config, host model.HostConfig, app model.AppConfig) {

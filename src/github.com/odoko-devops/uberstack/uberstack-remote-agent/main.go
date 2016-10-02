@@ -2,9 +2,9 @@ package main
 
 import (
 	"flag"
-	"utils"
+	"github.com/odoko-devops/uberstack/utils"
 	"strings"
-	"apps"
+	"github.com/odoko-devops/uberstack/apps"
 	"fmt"
 )
 

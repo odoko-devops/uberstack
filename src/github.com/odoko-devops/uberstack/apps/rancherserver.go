@@ -1,8 +1,8 @@
 package apps
 
 import (
-	"model"
-	"utils"
+	"github.com/odoko-devops/uberstack/model"
+	"github.com/odoko-devops/uberstack/utils"
 	"net/http"
 	"time"
 	"bytes"

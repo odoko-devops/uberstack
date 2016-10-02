@@ -1,15 +1,9 @@
-FROM ubuntu:16.04
+FROM golang:1.7.1
 
-RUN apt-get update && \
-    apt-get install -y curl git && \
-    mkdir /odoko && \
-    cd /usr/local && \
-    curl https://storage.googleapis.com/golang/go1.7.linux-amd64.tar.gz | tar -xz 
+RUN go get  gopkg.in/yaml.v2 \
+            github.com/kr/pty
 
-ENV GOPATH=/odoko/golibs
-ENV PATH=$PATH:/usr/local/go/bin:$GOPATH/bin
-
-WORKDIR /odoko
-RUN go get gopkg.in/yaml.v2 github.com/kr/pty
+ENV USER root
+WORKDIR /go
 
 ENTRYPOINT ["./build.sh"]

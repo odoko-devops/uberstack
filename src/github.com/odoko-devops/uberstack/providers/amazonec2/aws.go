@@ -1,9 +1,9 @@
 package amazonec2
 
 import (
-	"utils"
+	"github.com/odoko-devops/uberstack/utils"
 	"log"
-	"model"
+	"github.com/odoko-devops/uberstack/model"
 	"fmt"
 	"strings"
 )
@@ -20,13 +20,13 @@ type Amazonec2 struct {
 	zone        string
 	sshKeyPath  string
 
-	hosts       map[string]Amazonec2Host
+	hosts       map[string]Amazonec2HostOld
 
 	vpcId       string
 	subnetId    string
 }
 
-type Amazonec2Host struct {
+type Amazonec2HostOld struct {
 	host          model.HostConfig
 	instanceType  string
 	eipAlloc      string
@@ -58,12 +58,12 @@ func (aws *Amazonec2) Configure(config model.Config, state *model.State, provide
 		aws.sshKeyPath = fmt.Sprintf("%s/%s", utils.GetUberState(), aws.sshKeyPath)
 	}
 
-	aws.hosts = make(map[string]Amazonec2Host, len(config.Hosts))
+	aws.hosts = make(map[string]Amazonec2HostOld, len(config.Hosts))
 
 	for i := range config.Hosts {
 		host := config.Hosts[i]
 		if host.Provider == provider.Name {
-			awsHost := Amazonec2Host{}
+			awsHost := Amazonec2HostOld{}
 			awsHost.host = host
 			awsHost.instanceType = host.Config["instance_type"]
 			awsHost.eipAlloc = host.Config["elastic_ip_allocation"]
@@ -166,7 +166,14 @@ func (aws *Amazonec2) HostDestroy(host model.HostConfig, state *model.State) (bo
 	return false, nil
 }
 
-func (aws *Amazonec2) createHost(host Amazonec2Host) {
+func (aws *Amazonec2) createHost(host Amazonec2HostOld) {
+
+	iamRole := ""
+	if (host.host.Config["iam"] != "") {
+		//iamRoleValue := model.GetHostConfigValue(host.host, aws.state, "iam")
+		iamRole = "--amazonec2-iam-instance-profile=" + host.host.Config["iam"]
+		fmt.Printf("IAM Role: %s\n", iamRole)
+	}
 	log.Printf("Create host %s\n", host.host.Name)
 	command := fmt.Sprintf(`docker-machine -s %s/machine create --driver amazonec2 \
            --amazonec2-access-key=%s \
@@ -179,6 +186,7 @@ func (aws *Amazonec2) createHost(host Amazonec2Host) {
                --amazonec2-subnet-id=%s \
                --amazonec2-tags name,%s \
                --amazonec2-ssh-keypath=%s \
+               %s
                %s`,
 		utils.GetUberState(),
 		aws.accessKey,
@@ -191,11 +199,12 @@ func (aws *Amazonec2) createHost(host Amazonec2Host) {
 		model.GetHostConfigValue(host.host, aws.state, "subnet"),
 		host.host.Name,
 		aws.sshKeyPath,
+		iamRole,
 		host.host.Name)
 	utils.Execute(command, nil, "")
 }
 
-func (aws *Amazonec2) getInstanceId(host Amazonec2Host) string {
+func (aws *Amazonec2) getInstanceId(host Amazonec2HostOld) string {
 	command := fmt.Sprintf("docker-machine -s %s/machine inspect %s -f '{{.Driver.InstanceId}}'",
 		utils.GetUberState(), host.host.Name)
 	instanceId := strings.Replace(utils.ExecuteAndRetrieve(command, nil, ""), "'", "", -1)

@@ -6,7 +6,7 @@ import (
         "net"
         "net/http"
         "time"
-        "utils"
+        "github.com/odoko-devops/uberstack/utils"
         "log"
 )
 

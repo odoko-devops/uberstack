@@ -1,9 +1,9 @@
 package apps
 
 import (
-	"model"
+	"github.com/odoko-devops/uberstack/model"
 	"fmt"
-	"utils"
+	"github.com/odoko-devops/uberstack/utils"
 )
 
 func Proxy_Install(config model.Config, hostConfig model.HostConfig, app model.AppConfig) error {

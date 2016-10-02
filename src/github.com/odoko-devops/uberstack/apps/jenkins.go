@@ -1,9 +1,9 @@
 package apps
 
 import (
-	"utils"
+	"github.com/odoko-devops/uberstack/utils"
 	"fmt"
-	"model"
+	"github.com/odoko-devops/uberstack/model"
 )
 
 func Jenkins_Install(config model.Config, hostConfig model.HostConfig, app model.AppConfig) error {

@@ -1,7 +1,7 @@
 package model
 
 import (
-	"utils"
+	"github.com/odoko-devops/uberstack/utils"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"fmt"
@@ -166,5 +166,8 @@ type Uberstack struct {
 
 type UberEnv struct {
 	Provider string
+	TerraformBefore []string `yaml:"terraform-before"`
+	TerraformAfter []string `yaml:"terraform-after"`
+	TerraformConfig map[string]string `yaml:"terraform-config"`
 	Environment utils.Environment
 }

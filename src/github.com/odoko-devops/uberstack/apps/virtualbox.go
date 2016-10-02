@@ -1,7 +1,7 @@
 package apps
 
 import (
-	"utils"
+	"github.com/odoko-devops/uberstack/utils"
 	"text/template"
 	"io/ioutil"
 	"bytes"

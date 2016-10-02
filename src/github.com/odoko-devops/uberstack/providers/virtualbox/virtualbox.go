@@ -1,11 +1,57 @@
 package virtualbox
 
 import (
-	"model"
+	"github.com/odoko-devops/uberstack/model"
 	"fmt"
-	"utils"
-	"providers/defaultProvider"
+	"github.com/odoko-devops/uberstack/utils"
+	"github.com/odoko-devops/uberstack/providers/defaultProvider"
+	"github.com/odoko-devops/uberstack/config"
 )
+
+type VirtualBoxHostProvider struct {
+	config.HostProviderBase
+
+	Boot2DockerImage string `yaml:"boot2docker_image"`
+	Netmask string
+	Broadcast string
+}
+
+type VirtualBoxHost struct {
+	config.Host
+
+	DiskSize string
+	ram string
+	ip string
+}
+
+func LoadHostProvider(filename string) (config.HostProvider, error) {
+	provider := new(VirtualBoxHostProvider)
+	err := utils.ReadYamlFile(filename, provider)
+	if (err != nil) {
+		return nil, err
+	}
+	return provider, nil
+}
+
+func (p *VirtualBoxHostProvider) LoadHost(filename string) (config.Host, error) {
+	host := new(VirtualBoxHost)
+	err := utils.ReadYamlFile(filename, host)
+	if (err != nil) {
+		return nil, err
+	}
+	return host, nil
+}
+
+
+
+
+
+
+/**************************************************************************************************************/
+/**************************************************************************************************************/
+/**************************************************************************************************************/
+/**************************************************************************************************************/
+/**************************************************************************************************************/
 
 type VirtualBox struct {
 	Boot2DockerImage string

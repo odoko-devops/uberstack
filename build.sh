@@ -21,14 +21,14 @@ while [ $# -gt 0 ]; do
     IN_CONTAINER)
       IN_CONTAINER=true
       ;;
-    build)
-      BUILD_CONTAINER=true
-      ;;
     remote)
       BUILD_REMOTE=true
       ;;
     verbose)
       QUIET=
+      ;;
+    test)
+      TEST=true
       ;;
   esac
   shift
@@ -36,18 +36,22 @@ done
 
 if [ -z $IN_CONTAINER ]; then
   HERE=$(cd `dirname $0`;pwd)
-  if [ "$BUILD_CONTAINER" != "" ]; then
-    docker build $QUIET -t odoko/docker-stack-build .
-  fi
+  docker build $QUIET -t odoko/uberstack-build .
 
-  docker run -v $HERE/build.sh:/odoko/build.sh -v $HERE/bin:/build -v $HERE/src:/odoko/golibs/src odoko/docker-stack-build IN_CONTAINER $ARGS
+  docker run -v $HERE/build.sh:/go/build.sh -v $HERE/bin:/go/bin/darwin_amd64 -v $HERE/tests:/go/tests -v $HERE/src:/go/src odoko/uberstack-build IN_CONTAINER $ARGS
+    
 else
   echo "Building local resources..."
-  GOOS=darwin GOARCH=amd64 go build -o /build/uberstack uberstack
-  GOOS=darwin GOARCH=amd64 go build -o /build/foo foo 
+  GOOS=darwin GOARCH=amd64 go install github.com/odoko-devops/uberstack/uberstack
 
   if [ "$BUILD_REMOTE" = "true" ]; then
     echo "Building remote resources..."
     GOOS=linux GOARCH=amd64 go build -o /build/uberstack-remote-agent uberstack-remote-agent
   fi
+  if [ "$TEST" = "true" ]; then
+    echo "Executing tests..."
+    go test github.com/odoko-devops/uberstack/...
+  fi
 fi
+
+  

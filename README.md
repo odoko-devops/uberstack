@@ -112,3 +112,5 @@ and providing configuration (environment variables) for one or more
 'environments', such as local, dev, staging, qa and production.
 
 
+Note: Terraform configuration for AWS was inspired by this article:
+(https://www.airpair.com/aws/posts/ntiered-aws-docker-terraform-guide)

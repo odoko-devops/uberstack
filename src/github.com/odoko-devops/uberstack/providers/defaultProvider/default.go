@@ -1,15 +1,15 @@
 package defaultProvider
 
 import (
-	"model"
+	"github.com/odoko-devops/uberstack/model"
 	"log"
-	"utils"
+	"github.com/odoko-devops/uberstack/utils"
 	"fmt"
 	"strings"
 	"os"
 	"io/ioutil"
 	"gopkg.in/yaml.v2"
-	"apps"
+	"github.com/odoko-devops/uberstack/apps"
 	"os/exec"
 )
 
@@ -234,12 +234,22 @@ func checkRequiredUberstackVariables(uberstack model.Uberstack, params utils.Env
  * Process any referenced Uberstacks
  */
 func (p DefaultProvider) ProcessUberstack(config model.Config, state *model.State, uberHome string,
-		uberstack model.Uberstack, env string, cmd string, exclude_stack string) {
+		uberstack model.Uberstack, env string, cmd string, exclude_stack string, doTerraform bool) {
 
 	for i := 0; i < len(uberstack.Uberstacks); i++ {
 		name := uberstack.Uberstacks[i]
 		inner_uberstack := p.GetUberstack(uberHome, name)
-		p.ProcessUberstack(config, state, uberHome, inner_uberstack, env, cmd, exclude_stack)
+		p.ProcessUberstack(config, state, uberHome, inner_uberstack, env, cmd, exclude_stack, doTerraform)
+	}
+
+	uberEnv := uberstack.Environments[env]
+	params := utils.Environment{}
+	for k,v := range uberEnv.TerraformConfig {
+		params[k] = v
+	}
+
+	if doTerraform && len(uberEnv.TerraformBefore)>0 {
+		utils.TerraformApply(uberEnv.Provider, uberEnv.TerraformBefore, params)
 	}
 
 	for i := range uberstack.Stacks {
@@ -262,6 +272,9 @@ func (p DefaultProvider) ProcessUberstack(config model.Config, state *model.Stat
 			uberHome, stack, uberHome, stack, project, cmd)
 		env := getParametersFor(uberstack, env, state)
 		utils.Execute(command, env, "")
+	}
+	if doTerraform && len(uberEnv.TerraformAfter)>0 {
+		utils.TerraformApply(uberEnv.Provider, uberEnv.TerraformAfter, params)
 	}
 }
 

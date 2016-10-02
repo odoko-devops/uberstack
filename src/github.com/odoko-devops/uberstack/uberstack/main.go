@@ -3,14 +3,14 @@ package main
 import (
 	"fmt"
 	"flag"
-	"model"
-	"log"
-	"providers/defaultProvider"
-	"providers/amazonec2"
-	"providers/virtualbox"
 	"strings"
 	"os"
-	"utils"
+	"log"
+	"github.com/odoko-devops/uberstack/model"
+	"github.com/odoko-devops/uberstack/providers/defaultProvider"
+	"github.com/odoko-devops/uberstack/providers/amazonec2"
+	"github.com/odoko-devops/uberstack/providers/virtualbox"
+	"github.com/odoko-devops/uberstack/utils"
 )
 
 /*
@@ -179,6 +179,7 @@ func processApp(config model.Config, state *model.State, args []string, skip *mo
 
 	cmd := ""
 	desc := ""
+	doTerraform := true
 	switch action {
 	case "up":
 		cmd = "up -d"
@@ -201,6 +202,7 @@ func processApp(config model.Config, state *model.State, args []string, skip *mo
 		}
 		cmd = "rm --force"
 		desc = "Removing"
+		doTerraform = false
 	default:
 		fmt.Printf("Unknown action: %s", action)
 		os.Exit(1)
@@ -209,7 +211,7 @@ func processApp(config model.Config, state *model.State, args []string, skip *mo
 	uberstack := defaultProvider.GetUberstack(uberHome, uberstackName)
 	fmt.Printf("%s uberstack %s\n", desc, uberstack.Name)
 
-	defaultProvider.ProcessUberstack(config, state, uberHome, uberstack, environment, cmd, "")
+	defaultProvider.ProcessUberstack(config, state, uberHome, uberstack, environment, cmd, "", doTerraform)
 
 }
 

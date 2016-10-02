@@ -1,7 +1,7 @@
 package model
 
 import (
-	"utils"
+	"github.com/odoko-devops/uberstack/utils"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
 )

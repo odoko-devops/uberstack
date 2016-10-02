@@ -15,6 +15,7 @@ import (
 	"io/ioutil"
 	"text/template"
 	"bytes"
+	"gopkg.in/yaml.v2"
 )
 
 
@@ -311,4 +312,20 @@ func Ask(message string) string {
 
 func Confirm(message, expected string) bool {
 	return Ask(message) == expected
+}
+
+func ReadYamlFile(filename string, obj interface{}) error {
+	if (!strings.HasSuffix(filename, ".yml")) {
+		filename = filename + ".yml"
+	}
+	bytes, err := ioutil.ReadFile(filename)
+	if (err != nil) {
+		return err
+	}
+
+	err = yaml.Unmarshal(bytes, obj)
+	if (err != nil) {
+		return err
+	}
+	return nil
 }
