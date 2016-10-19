@@ -71,7 +71,6 @@ func (p *HostProviderBase) GetName() string {
 }
 
 func (p *HostProviderBase) Resolve(text string, env ExecutionEnvironment) string {
-	log.Printf("Resolving %s using host provider %s with state %s", text, p.GetName(), p.State)
 	return p.State.Resolve(text, env)
 }
 
@@ -83,9 +82,8 @@ func (p *HostProviderBase) GetState() *State {
 	return p.State
 }
 func (p *HostProviderBase) Execute(host Host, command string, env ExecutionEnvironment) error {
-	log.Printf("Resolving hostname of %s", host.GetHostName())
 	hostName := p.Resolve(host.GetHostName(), env)
-	log.Printf("Resolved hostname to %s", hostName)
+	log.Printf("Resolved hostname %s to %s", host.GetHostName(), hostName)
 	signer, err := getKeyFile()
 	if err != nil {
 		return err
@@ -108,9 +106,8 @@ func (p *HostProviderBase) UploadFile(host Host, filename string, destination st
 }
 
 func (p *HostProviderBase) UploadScript(host Host, script string, destination string) error {
-	log.Printf("Resolving hostname of %s", host.GetHostName())
 	hostName := p.Resolve(host.GetHostName(), nil)
-	log.Printf("Resolved hostname to %s", hostName)
+	log.Printf("Resolved hostname %s to %s", host.GetHostName(), hostName)
 	signer, err := getKeyFile()
 	if err != nil {
 		return err
