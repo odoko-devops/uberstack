@@ -1,16 +1,8 @@
 package apps
 
-import (
-	"github.com/odoko-devops/uberstack/model"
-	"log"
-	"github.com/odoko-devops/uberstack/utils"
-	"fmt"
-	"strings"
-	"text/template"
-	"bytes"
-	"io/ioutil"
-)
+import "log"
 
+/*
 func Vpn_Install(config model.Config, state *model.State, hostConfig model.HostConfig, app model.AppConfig) error {
 
 	log.Println("Deploy VPN Service")
@@ -31,9 +23,10 @@ func Vpn_Install(config model.Config, state *model.State, hostConfig model.HostC
 	command = fmt.Sprintf("docker-machine -s %s/machine ssh %s cat %s.ovpn",
 		utils.GetUberState(), hostConfig.Name, username)
 
-	ovpn := utils.ExecuteAndRetrieve(command, env, "")
+	ovpn, err := utils.ExecuteAndRetrieve(command, env, "")
+	utils.Check(err)
 	filename := fmt.Sprintf("%s/%s.ovpn", utils.GetUberState(), username)
-	err := ioutil.WriteFile(filename, []byte(ovpn), 0644)
+	err = ioutil.WriteFile(filename, []byte(ovpn), 0644)
 	utils.Check(err)
 	fmt.Printf("Changed ovpn\n")
 
@@ -89,10 +82,12 @@ func Vpn_RemoteInstall(cidr, publicIp, username, password string) error {
 	}
 
 	command := "docker run --volumes-from ovpn-data --rm gosuri/openvpn ovpn_getclient " + params["username"]
-	ovpn := utils.ExecuteAndRetrieve(command, nil, "")
+	ovpn, err := utils.ExecuteAndRetrieve(command, nil, "")
+	utils.Check(err)
 	filename := fmt.Sprintf("%s.ovpn", params["username"])
-	err := ioutil.WriteFile(filename, []byte(ovpn), 0644)
+	err = ioutil.WriteFile(filename, []byte(ovpn), 0644)
 	utils.Check(err)
 	fmt.Println("Completed remote VPN install")
 	return nil
 }
+*/
