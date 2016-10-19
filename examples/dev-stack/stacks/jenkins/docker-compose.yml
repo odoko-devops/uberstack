@@ -1,5 +1,7 @@
 jenkins:
   image: odoko/jenkins:2.7.1-odoko01
+  ports:
+   - 8081:8080
   environment:
     JENKINS_OPTS:
     DOCKER_HOSTNAME: ${DOCKER_HOST}

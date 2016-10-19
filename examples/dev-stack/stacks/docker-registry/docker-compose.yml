@@ -5,8 +5,8 @@ docker-registry:
   environment:
     DOCKER_HOSTNAME: ${DOCKER_HOST}
     EMAIL: ${EMAIL}
-    USERNAME: ${USER}
-    PASSWORD: ${PASS}
+    USERNAME: ${USERNAME}
+    PASSWORD: ${PASSWORD}
     REGISTRY_HTTP_TLS_CERTIFICATE: /etc/letsencrypt/live/${DOCKER_HOST}/domain.crt
     REGISTRY_HTTP_TLS_KEY: /etc/letsencrypt/live/${DOCKER_HOST}/domain.key
     REGISTRY_AUTH: htpasswd
