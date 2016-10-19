@@ -5,3 +5,7 @@
 /src/pkg
 /pkg
 /tmp
+terraform.tfstate
+terraform.tfstate.backup
+/state.yml
+*.test
