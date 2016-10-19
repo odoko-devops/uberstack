@@ -1,10 +1,7 @@
 package virtualbox
 
 import (
-	"github.com/odoko-devops/uberstack/model"
-	"fmt"
 	"github.com/odoko-devops/uberstack/utils"
-	"github.com/odoko-devops/uberstack/providers/defaultProvider"
 	"github.com/odoko-devops/uberstack/config"
 )
 
@@ -42,8 +39,8 @@ func (p *VirtualBoxHostProvider) LoadHost(filename string) (config.Host, error) 
 	return host, nil
 }
 
-func (p *VirtualBoxHostProvider) CreateHost(host config.Host) (map[string]string, error) {
-	return nil, nil
+func (p *VirtualBoxHostProvider) CreateHost(host config.Host) (map[string]string, map[string]string, error) {
+	return nil, nil, nil
 }
 
 func (p *VirtualBoxHostProvider) DeleteHost(host config.Host) (error) {
@@ -51,39 +48,8 @@ func (p *VirtualBoxHostProvider) DeleteHost(host config.Host) (error) {
 }
 
 
-/**************************************************************************************************************/
-/**************************************************************************************************************/
-/**************************************************************************************************************/
-/**************************************************************************************************************/
-/**************************************************************************************************************/
-
-type VirtualBox struct {
-	Boot2DockerImage string
-	NetMask string
-	Broadcast string
-}
-
-func (v *VirtualBox) Configure(config model.Config, state *model.State, provider model.ProviderConfig) error {
-	v.Boot2DockerImage = provider.Config["boot2docker-image"]
-	v.NetMask = provider.Config["netmask"]
-	v.Broadcast = provider.Config["broadcast"]
-	return nil
-}
-
-func (v *VirtualBox) SampleConfiguration() error {
-	return nil
-}
-
-func (v *VirtualBox) InfrastructureUp() error {
-	println("Nothing to do for Virtualbox Infrastructure")
-	return nil
-}
-func (v *VirtualBox) InfrastructureDestroy() error {
-	println("Nothing to do for Virtualbox Infrastructure")
-	return nil
-}
+/*
 func (v *VirtualBox) HostUp(host model.HostConfig, state *model.State) error {
-
 	disk := host.Config["disk-size"]
 	memory := host.Config["ram"]
 	image := v.Boot2DockerImage
@@ -111,10 +77,6 @@ func (v *VirtualBox) HostUp(host model.HostConfig, state *model.State) error {
 	}
 	hostState["public-ip"] = host.Config["ip"]
 	state.HostState[host.Name] = hostState
-
 	return nil
 }
-
-func (v *VirtualBox) HostDestroy(host model.HostConfig, state *model.State) (bool, error) {
-	return false, nil
-}
+*/
