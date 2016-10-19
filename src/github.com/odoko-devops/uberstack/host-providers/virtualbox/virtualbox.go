@@ -42,9 +42,13 @@ func (p *VirtualBoxHostProvider) LoadHost(filename string) (config.Host, error) 
 	return host, nil
 }
 
+func (p *VirtualBoxHostProvider) CreateHost(host config.Host) (map[string]string, error) {
+	return nil, nil
+}
 
-
-
+func (p *VirtualBoxHostProvider) DeleteHost(host config.Host) (error) {
+	return nil
+}
 
 
 /**************************************************************************************************************/

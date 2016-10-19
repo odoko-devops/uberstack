@@ -80,15 +80,6 @@ func (aws *Amazonec2) Configure(config model.Config, state *model.State, provide
 	return nil
 }
 
-func (aws *Amazonec2) SampleConfiguration() error {
-
-	for k, v := range terraformConfig {
-		fmt.Printf("Exporting configuration %s\n", k)
-		utils.TerraformExport(v, aws.provider.Name, k, aws.provider.Config)
-	}
-	return nil
-}
-
 func (aws *Amazonec2) terraformConfig() utils.Environment {
 	return utils.Environment{
 		"TF_VAR_aws_access_key": aws.accessKey,
@@ -154,7 +145,9 @@ func (aws *Amazonec2) HostUp(hostConfig model.HostConfig, state *model.State) er
 		fmt.Println("Retrieving IP from docker-machine")
 		command := fmt.Sprintf("docker-machine -s %s/machine inspect %s -f '{{.Driver.IPAddress}}'",
 			utils.GetUberState(), awsHost.host.Name)
-		hostState["public-ip"] = strings.Replace(utils.ExecuteAndRetrieve(command, nil, ""), "'", "", -1)
+		output, err := utils.ExecuteAndRetrieve(command, nil, "")
+		utils.Check(err)
+		hostState["public-ip"] = strings.Replace(output, "'", "", -1)
 	}
 	fmt.Printf("Public IP for %s = %s\n", hostConfig.Name, hostState["public-ip"])
 	state.HostState[hostConfig.Name] = hostState
@@ -207,7 +200,9 @@ func (aws *Amazonec2) createHost(host Amazonec2HostOld) {
 func (aws *Amazonec2) getInstanceId(host Amazonec2HostOld) string {
 	command := fmt.Sprintf("docker-machine -s %s/machine inspect %s -f '{{.Driver.InstanceId}}'",
 		utils.GetUberState(), host.host.Name)
-	instanceId := strings.Replace(utils.ExecuteAndRetrieve(command, nil, ""), "'", "", -1)
+	output, err := utils.ExecuteAndRetrieve(command, nil, "")
+	utils.Check(err)
+	instanceId := strings.Replace(output, "'", "", -1)
 	fmt.Printf("INSTANCE ID = %s\n", instanceId)
 	return instanceId
 }

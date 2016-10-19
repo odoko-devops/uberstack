@@ -277,26 +277,3 @@ func (p DefaultProvider) ProcessUberstack(config model.Config, state *model.Stat
 		utils.TerraformApply(uberEnv.Provider, uberEnv.TerraformAfter, params)
 	}
 }
-
-/***********************************************************************
- * Generate a sample config to get started
- */
-func (p DefaultProvider) GenerateSampleConfiguration() {
-	configPath := fmt.Sprintf("%s/config.yml", utils.GetUberState())
-	if _, err := os.Stat(configPath); err == nil {
-		message := fmt.Sprintf("Configuration exists at %s. Continue? (yes/no)", configPath)
-		if !utils.Confirm(message, "yes") {
-			fmt.Println("Quitting")
-			os.Exit(1)
-		}
-	}
-
-	configuration := strings.TrimSpace(sampleConfiguration)
-	for _, variable := range sampleVariables {
-		message := fmt.Sprintf("Value for %s? ", variable)
-		value := utils.Ask(message)
-		variableName := fmt.Sprintf("%%%s%%", variable)
-		configuration = strings.Replace(configuration, variableName, value, -1)
-	}
-	ioutil.WriteFile(configPath, []byte(configuration), 0644)
-}

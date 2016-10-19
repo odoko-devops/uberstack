@@ -16,6 +16,7 @@ import (
 	"text/template"
 	"bytes"
 	"gopkg.in/yaml.v2"
+	"path/filepath"
 )
 
 
@@ -76,7 +77,7 @@ func splitFunc(c rune) bool {
 	return c == ' ' || c == '\n' || c == '\t' || c == '\\'
 }
 
-func Execute(command string, env Environment, dir string) {
+func Execute(command string, env Environment, dir string) error {
 	args := strings.FieldsFunc(command, splitFunc)
 	cmd := exec.Command(args[0], args[1:]...)
 
@@ -89,18 +90,23 @@ func Execute(command string, env Environment, dir string) {
 		cmd.Dir = dir
 	}
 	fmt.Printf("Executing %s\n", command)
-	cmd.Start()
+	err := cmd.Start()
+	if err != nil {
+		return err
+	}
 	stdOutReader := bufio.NewReader(stdout)
 	stdErrReader := bufio.NewReader(stderr)
 	go watchOutputStream("stdout", *stdOutReader)
 	go watchOutputStream("stderr", *stdErrReader)
 	cmd.Wait()
+	return nil
 }
+
 
 /***********************************************************************
  * Execute a command, and return the output
  */
-func ExecuteAndRetrieve(command string, env Environment, dir string) string {
+func ExecuteAndRetrieve(command string, env Environment, dir string) (string, error) {
 	fmt.Printf("Execute (with retrieve) %s\n", command)
 	args := strings.FieldsFunc(command, splitFunc)
 	cmd := exec.Command(args[0], args[1:]...)
@@ -111,8 +117,10 @@ func ExecuteAndRetrieve(command string, env Environment, dir string) string {
 	}
 
 	output, err := cmd.Output()
-	Check(err)
-	return strings.TrimRight(string(output), "\n")
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimRight(string(output), "\n"), nil
 }
 
 /***********************************************************************
@@ -272,7 +280,7 @@ func TerraformApply(providerName string, resources []string, env Environment) {
 
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		fmt.Printf("Cannot apply terraform config - cannot find %s\n", path)
-		os.Exit(1)
+		os.Exit(2)
   	}
 
 	resourceTargets := make([]string, len(resources))
@@ -286,7 +294,9 @@ func TerraformApply(providerName string, resources []string, env Environment) {
 func TerraformOutput(providerName string, output string) string {
 	path := fmt.Sprintf("%s/terraform/%s", GetUberState(), providerName)
 	command := fmt.Sprintf("terraform output %s", output)
-	return ExecuteAndRetrieve(command, nil, path)
+	output, err := ExecuteAndRetrieve(command, nil, path)
+	Check(err)
+	return output
 }
 
 func TerraformDestroy(name string, env Environment) {
@@ -315,17 +325,40 @@ func Confirm(message, expected string) bool {
 }
 
 func ReadYamlFile(filename string, obj interface{}) error {
-	if (!strings.HasSuffix(filename, ".yml")) {
-		filename = filename + ".yml"
+
+	filepath, err := Resolve(filename, true)
+	if err != nil {
+		return err
 	}
-	bytes, err := ioutil.ReadFile(filename)
-	if (err != nil) {
+	if (!strings.HasSuffix(filepath, ".yml")) {
+		filepath = filepath + ".yml"
+	}
+	log.Printf("Reading %s\n", filepath)
+	bytes, err := ioutil.ReadFile(filepath)
+	if err != nil {
 		return err
 	}
 
 	err = yaml.Unmarshal(bytes, obj)
-	if (err != nil) {
+	if err != nil {
 		return err
 	}
 	return nil
+}
+
+func Resolve(filename string, isYaml bool) (string, error) {
+	var p string
+	if len(filename)>0 && filename[0]=='/' {
+		p = filename
+	} else {
+		uberHome := os.Getenv("UBER_HOME")
+		p = filepath.Join(uberHome, filename)
+	}
+	if isYaml && !strings.HasSuffix(filename, ".yml") {
+		p = p + ".yml"
+	}
+	if _, err := os.Stat(p); os.IsNotExist(err) {
+		return "", fmt.Errorf("Cannot locate configuration %s at %s\n", filename, p)
+  	}
+	return p, nil
 }

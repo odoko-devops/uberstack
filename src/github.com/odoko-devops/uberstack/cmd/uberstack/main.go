@@ -3,14 +3,7 @@ package main
 import (
 	"fmt"
 	"flag"
-	"strings"
-	"os"
-	"log"
-	"github.com/odoko-devops/uberstack/model"
-	"github.com/odoko-devops/uberstack/providers/defaultProvider"
-	"github.com/odoko-devops/uberstack/providers/amazonec2"
-	"github.com/odoko-devops/uberstack/providers/virtualbox"
-	"github.com/odoko-devops/uberstack/utils"
+	u "github.com/odoko-devops/uberstack/uberstack"
 )
 
 /*
@@ -30,7 +23,7 @@ import (
 	  uberstack app up myapp local
 	  uberstack app up myapp dev
  */
-
+/*
 func CreateHost(config model.Config, state *model.State, provider model.Provider,
 		hostConfig model.HostConfig, skip *model.SkipList) {
 
@@ -113,9 +106,6 @@ func processProvider(config model.Config, state *model.State, args []string, ski
 	providerName := args[1]
 
 	switch action {
-	case "sample":
-		provider := GetProvider(config, state, providerName)
-		provider.SampleConfiguration()
 	case "up":
 		provider := GetProvider(config, state, providerName)
 		provider.InfrastructureUp()
@@ -130,7 +120,7 @@ func processProvider(config model.Config, state *model.State, args []string, ski
 	}
 }
 
-func processHost(config model.Config, state *model.State, args []string, skip *model.SkipList) {
+func processHostOld(config model.Config, state *model.State, args []string, skip *model.SkipList) {
 	action := args[0]
 
 	switch action {
@@ -161,7 +151,7 @@ func processHost(config model.Config, state *model.State, args []string, skip *m
 	}
 }
 
-func processApp(config model.Config, state *model.State, args []string, skip *model.SkipList) {
+func processAppOld(config model.Config, state *model.State, args []string, skip *model.SkipList) {
 	uberHome := os.Getenv("UBER_HOME")
 	if uberHome == "" {
 		println("Please set UBER_HOME.")
@@ -221,12 +211,7 @@ func processInit(config model.Config, state *model.State, args []string, skip *m
 	utils.Download("terraform")
 }
 
-func processSample(config model.Config, state *model.State, args []string, skip *model.SkipList) {
-	defaultProvider := defaultProvider.DefaultProvider{}
-	defaultProvider.GenerateSampleConfiguration()
-}
-
-func main() {
+func mainOld() {
 
 	skipString := flag.String("skip", "", "Process to skip")
 	flag.Parse()
@@ -244,17 +229,36 @@ func main() {
 	switch group {
 	case "init":
 		processInit(config, state, flag.Args()[1:], skipOptions)
-	case "sample":
-		processSample(config, state, flag.Args()[1:], skipOptions)
 	case "provider":
 		processProvider(config, state, flag.Args()[1:], skipOptions)
 	case "host":
-		processHost(config, state, flag.Args()[1:], skipOptions)
+		processHostOld(config, state, flag.Args()[1:], skipOptions)
 	case "app":
-		processApp(config, state, flag.Args()[1:], skipOptions)
+		processAppOld(config, state, flag.Args()[1:], skipOptions)
 	default:
 		fmt.Printf("Unknown group: %s\n", group)
 	}
 
 	model.SaveState(stateFile, state)
+}
+
+*/
+
+func main() {
+	flag.Parse()
+	actionType := flag.Arg(0)
+	switch actionType {
+	case "host":
+		err := u.ProcessHost(flag.Args())
+		if err != nil {
+			fmt.Println(err)
+		}
+	case "app":
+		err := u.ProcessApp(flag.Args())
+		if err != nil {
+			fmt.Println(err)
+		}
+	default:
+		fmt.Printf("Unknown action: %s\n", actionType)
+	}
 }
