@@ -1,0 +1,12 @@
+rancher-server:
+  image: rancher/server
+  ports:
+  - 8080:8080/tcp
+rancher-configurator:
+  image: odoko/rancher-configurator
+  environment:
+    RANCHER_HOST: ${RANCHER_HOST}
+    DOCKER_HOST: ${DOCKER_HOST}
+    USERNAME: ${USERNAME}
+    PASSWORD: ${PASSWORD}
+    EMAIL: ${EMAIL}

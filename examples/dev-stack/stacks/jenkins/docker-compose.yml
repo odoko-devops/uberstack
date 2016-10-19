@@ -1,0 +1,11 @@
+jenkins:
+  image: odoko/jenkins:2.7.1-odoko01
+  environment:
+    JENKINS_OPTS:
+    DOCKER_HOSTNAME: ${DOCKER_HOST}
+    USERNAME: ${USERNAME}
+    PASSWORD: ${PASSWORD}
+    PLUGINS: git
+  volumes:
+    - /jenkins:/var/jenkins_home
+    - /var/run/docker.sock:/var/run/docker.sock

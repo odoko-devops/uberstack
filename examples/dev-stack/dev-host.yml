@@ -1,0 +1,17 @@
+type: host
+name: dev-host
+host-provider: terraform
+host-name: ${host.dev-host.dev_host_ip}
+variables:
+  instance_type: t2.small
+  public_key: ${PUBLIC_KEY}
+  elastic_ip_allocation: ${EIP_ALLOCATION}
+required:
+  - PUBLIC_KEY
+  - EIP_ALLOCATION
+resources:
+  - aws_instance.dev_host
+  - aws_eip_association.dev_host
+outputs:
+  - dev_host_id
+  - dev_host_ip

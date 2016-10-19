@@ -1,0 +1,22 @@
+type: host-provider
+impl: terraform
+name: terraform
+terraform-directory: terraform/
+variables:
+  ami: ami-e3c3b8f4
+  region: us-east-1
+  zone: b
+  ssh_keypath: id_rsa
+  access_key: ${AWS_ACCESS_KEY}
+  secret_key: ${AWS_SECRET_KEY}
+resources:
+  - aws_security_group.dev_stack
+  - aws_vpc.default
+  - aws_subnet.public
+  - aws_route_table.public
+  - aws_route_table_association.public
+  - aws_internet_gateway.default
+  - aws_eip_association.dev_host
+outputs:
+  - dev_stack_sg_id
+  - vpc_id

@@ -1,0 +1,3 @@
+name: rancher-server
+app-provider: docker
+docker-compose: stacks/rancher-server
