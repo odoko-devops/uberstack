@@ -8,6 +8,7 @@ import (
 	"github.com/odoko-devops/uberstack/host-providers/virtualbox"
 	"github.com/odoko-devops/uberstack/host-providers/terraform"
 	"github.com/odoko-devops/uberstack/app-providers/docker"
+	"github.com/odoko-devops/uberstack/app-providers/rancher"
 )
 
 func LoadHostProvider(filename string, state *config.State) (config.HostProvider, error) {
@@ -76,6 +77,7 @@ func LoadAppProvider(filename string, state *config.State) (config.AppProvider, 
 	case "docker":
 		provider, err = docker.LoadAppProvider(filename)
 	case "rancher":
+		provider, err = rancher.LoadAppProvider(filename)
 	default:
 		err = fmt.Errorf("Provider not known: %s", baseProvider.Impl)
 	}
