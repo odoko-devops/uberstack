@@ -1,7 +1,5 @@
 package apps
 
-import "log"
-
 /*
 func Vpn_Install(config model.Config, state *model.State, hostConfig model.HostConfig, app model.AppConfig) error {
 

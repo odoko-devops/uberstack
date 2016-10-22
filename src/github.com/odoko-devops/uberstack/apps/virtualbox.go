@@ -1,12 +1,6 @@
 package apps
 
-import (
-	"github.com/odoko-devops/uberstack/utils"
-	"text/template"
-	"io/ioutil"
-	"bytes"
-)
-
+/*
 var virtualBoxInstallScript=`#!/bin/sh
 sudo mkdir /mnt/sda1/var/lib/rancher
 echo 'sudo mkdir /mnt/sda1/var/lib/rancher' | sudo tee -a /var/lib/boot2docker/profile
@@ -37,5 +31,5 @@ func Virtualbox_Configure(ip, netmask, broadcast string) {
 	utils.Execute("/tmp/virtualbox.sh", nil, "")
 }
 
-
+*/
 
