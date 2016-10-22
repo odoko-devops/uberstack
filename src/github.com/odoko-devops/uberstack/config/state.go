@@ -53,6 +53,15 @@ func (s *State) GetHostValue(host Host, name string) string {
 	}
 }
 
+func (s *State) Get(name string) string {
+	val, ok := s.VariableMap[name]
+	if ok {
+		return *val
+	} else {
+		return ""
+	}
+}
+
 func (s *State) Resolve(text string, env ExecutionEnvironment) string {
 	for ; strings.Contains(text, "${"); {
 		text = os.Expand(text, func(name string) string {

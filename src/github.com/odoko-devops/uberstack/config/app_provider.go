@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 	"log"
+	"regexp"
 )
 
 type AppProviderBase struct {
@@ -29,6 +30,9 @@ type AppProvider interface {
 	StopApp(app App, envName string) error
 
 	StartDependentApps(app App, envName string, env ExecutionEnvironment) error
+	StopDependentApps(app App, envName string) error
+
+	ResolveOutputs(app App, output string) error
 }
 
 func (p *AppProviderBase) LoadApp(filename string) (App, error) {
@@ -60,6 +64,34 @@ func (p *AppProviderBase) StartDependentApps(app App, envName string, env Execut
 	return nil
 }
 
+func (p *AppProviderBase) StopDependentApps(app App, envName string) error {
+	log.Printf("Dependent Apps: %s", app.GetApps())
+	for _, childApp := range app.GetApps() {
+		provider := app.GetAppProvider()
+		err := provider.StopApp(childApp, envName)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (p *AppProviderBase) ResolveOutputs(app App, output string) error {
+	outputs := app.GetOutputs()
+	if outputs != nil {
+		for k, v := range outputs {
+			r, err := regexp.Compile(v)
+			if err != nil {
+				return err
+			}
+			value := r.FindString(output)
+			p.State.SetValue(k, value)
+		}
+	}
+	return nil
+}
+
+
 type ExecutionEnvironment map[string]string
 type DeploymentEnvironment struct {
 	HostProviderName string `yaml:"host-provider"`
@@ -79,6 +111,7 @@ type AppBase struct {
 	Required            []string
 	Environments        map[string]DeploymentEnvironment
 	Apps                []App
+	Outputs             map[string]string
 }
 
 type App interface {
@@ -93,6 +126,7 @@ type App interface {
 	SetHost(host Host)
 	AddApp(app App)
 	GetApps() []App
+	GetOutputs() map[string]string
 }
 
 func (a *AppBase) GetAppProvider() AppProvider {
@@ -161,4 +195,8 @@ func (a *AppBase) AddApp(app App) {
 
 func (a *AppBase) GetApps() []App {
 	return a.Apps
+}
+
+func (a *AppBase) GetOutputs() map[string]string {
+	return a.Outputs
 }
