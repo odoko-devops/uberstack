@@ -9,6 +9,9 @@ variables:
   ssh_keypath: id_rsa
   access_key: ${AWS_ACCESS_KEY}
   secret_key: ${AWS_SECRET_KEY}
+required:
+  - AWS_ACCESS_KEY
+  - AWS_SECRET_KEY
 resources:
   - aws_security_group.dev_stack
   - aws_vpc.default
