@@ -65,7 +65,7 @@ func (p *TerraformHostProvider) CreateHost(h config.Host) (map[string]string, ma
 	}
 	targets := strings.Join(resourceTargets, " ")
 
-	env := utils.Environment{}
+	env := config.ExecutionEnvironment{}
 	for k, v := range p.Variables {
 		env["TF_VAR_" + k]= os.ExpandEnv(v)
 	}
@@ -83,7 +83,7 @@ func (p *TerraformHostProvider) CreateHost(h config.Host) (map[string]string, ma
 	}
 
 	command := fmt.Sprintf("terraform apply -refresh=true %s", targets)
-	err = utils.Execute(command, env, filepath)
+	_, err = utils.Execute(command, env, filepath)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -125,7 +125,7 @@ func (p *TerraformHostProvider) DeleteHost(h config.Host) (error) {
 	targets := strings.Join(resourceTargets, " ")
 	log.Printf("Targets for %v and %v are %v\n", p.Resources, host.Resources, targets)
 
-	env := utils.Environment{}
+	env := config.ExecutionEnvironment{}
 	for k, v := range p.Variables {
 		env["TF_VAR_" + k]= os.ExpandEnv(v)
 	}
@@ -139,7 +139,7 @@ func (p *TerraformHostProvider) DeleteHost(h config.Host) (error) {
 
 	command := fmt.Sprintf("terraform destroy -force -refresh=true %s", targets)
 	log.Printf("COMMAND: %s\n", command)
-	err = utils.Execute(command, env, filepath)
+	_, err = utils.Execute(command, env, filepath)
 	if err != nil {
 		return err
 	}

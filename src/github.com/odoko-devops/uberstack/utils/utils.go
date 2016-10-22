@@ -10,57 +10,31 @@ import (
 	"github.com/kr/pty"
 	"time"
 	"os"
-	"net/http"
-	"runtime"
 	"io/ioutil"
-	"text/template"
 	"bytes"
 	"gopkg.in/yaml.v2"
 	"path/filepath"
+	"github.com/odoko-devops/uberstack/config"
 )
-
-
-type Environment map[string]string
-
-/***********************************************************************
- * Check and quit on errors
- */
-func Check(err error) {
-	if err != nil {
-		log.Fatal(err)
-		fmt.Println(err)
-		panic(err)
-	}
-}
-
-/***********************************************************************
- * Assert that a variable exists
- */
-func Required(value string, message string) {
-	if value == "" {
-		panic(message)
-	}
-}
 
 /***********************************************************************
  * Execute a command, with streamed output for slow running commands
  */
-func watchOutputStream(typ string, r bufio.Reader) {
+func watchOutputStream(typ string, r bufio.Reader, buf *bytes.Buffer) {
 	for {
 		line, _, err := r.ReadLine()
 		if err == io.EOF {
 			break
 		}
 		fmt.Printf("%s: %s\n", typ, line)
+		if buf != nil {
+			buf.Write(line)
+		}
 	}
 }
 
-func prepareEnvironment(env Environment) []string {
+func prepareEnvironment(env config.ExecutionEnvironment) []string {
 	if env != nil {
-		uberState := GetUberStateLenient()
-		if uberState != "" {
-			env["PATH"] = "/bin:/usr/bin:/usr/local/bin/:" + uberState + "/bin"
-		}
 		preparedEnv := make([]string, len(env))
 		i := 0
 		for k,v := range env {
@@ -73,12 +47,10 @@ func prepareEnvironment(env Environment) []string {
 	}
 }
 
-func splitFunc(c rune) bool {
-	return c == ' ' || c == '\n' || c == '\t' || c == '\\'
-}
-
-func Execute(command string, env Environment, dir string) error {
-	args := strings.FieldsFunc(command, splitFunc)
+func Execute(command string, env config.ExecutionEnvironment, dir string) ([]byte, error) {
+	args := strings.FieldsFunc(command, func(c rune)bool {
+		return c == ' ' || c == '\n' || c == '\t' || c == '\\'
+	})
 	cmd := exec.Command(args[0], args[1:]...)
 
 	stdout, _ := cmd.StdoutPipe()
@@ -92,23 +64,26 @@ func Execute(command string, env Environment, dir string) error {
 	fmt.Printf("Executing %s\n", command)
 	err := cmd.Start()
 	if err != nil {
-		return err
+		return nil, err
 	}
+	outputBuffer := new(bytes.Buffer)
 	stdOutReader := bufio.NewReader(stdout)
 	stdErrReader := bufio.NewReader(stderr)
-	go watchOutputStream("stdout", *stdOutReader)
-	go watchOutputStream("stderr", *stdErrReader)
+	go watchOutputStream("stdout", *stdOutReader, outputBuffer)
+	go watchOutputStream("stderr", *stdErrReader, nil)
 	cmd.Wait()
-	return nil
+	return outputBuffer.Bytes(), nil
 }
 
 
 /***********************************************************************
  * Execute a command, and return the output
  */
-func ExecuteAndRetrieve(command string, env Environment, dir string) (string, error) {
+func ExecuteAndRetrieve(command string, env config.ExecutionEnvironment, dir string) (string, error) {
 	fmt.Printf("Execute (with retrieve) %s\n", command)
-	args := strings.FieldsFunc(command, splitFunc)
+	args := strings.FieldsFunc(command, func(c rune)bool {
+		return c == ' ' || c == '\n' || c == '\t' || c == '\\'
+	})
 	cmd := exec.Command(args[0], args[1:]...)
 	cmd.Env = prepareEnvironment(env)
 
@@ -123,22 +98,16 @@ func ExecuteAndRetrieve(command string, env Environment, dir string) (string, er
 	return strings.TrimRight(string(output), "\n"), nil
 }
 
-/***********************************************************************
- * Execute a command on a remote Docker host
- */
-func ExecuteRemote(host, cmd string, env Environment, dir string) {
-	command := fmt.Sprintf(`docker-machine -s %s/machine ssh %s %s`, GetUberState(), host, cmd)
-	Execute(command, env, dir)
-}
-
 func sendToPty(input string, pty *os.File) {
 	time.Sleep(5 * time.Second)
 
 	pty.Write([]byte(input+"\n"))
 }
 
-func ExecuteWithInput(command, input string, env Environment, dir string) {
-	args := strings.FieldsFunc(command, splitFunc)
+func ExecuteWithInput(command, input string, env config.ExecutionEnvironment, dir string) error {
+	args := strings.FieldsFunc(command, func(c rune)bool {
+		return c == ' ' || c == '\n' || c == '\t' || c == '\\'
+	})
 	cmd := exec.Command(args[0], args[1:]...)
 
 	cmd.Env = prepareEnvironment(env)
@@ -148,42 +117,17 @@ func ExecuteWithInput(command, input string, env Environment, dir string) {
 	}
 
 	f, err := pty.Start(cmd)
-	Check(err)
+	if err != nil {
+		return err
+	}
 
 	go sendToPty(input, f)
 	go io.Copy(os.Stdout, f)
 	cmd.Wait()
+	return nil
 }
 
-func GetUberState() string {
-	uberState := os.Getenv("UBER_STATE")
-
-	if uberState == "" {
-
-		uberHome := os.Getenv("UBER_HOME")
-		if uberHome == "" {
-			println("Please set either UBER_HOME or UBER_STATE")
-			os.Exit(1)
-		}
-		uberState = uberHome + "/state"
-	}
-	return uberState
-}
-
-func GetUberStateLenient() string {
-	uberState := os.Getenv("UBER_STATE")
-
-	if uberState == "" {
-
-		uberHome := os.Getenv("UBER_HOME")
-		if uberHome == "" {
-			return ""
-		}
-		uberState = uberHome + "/state"
-	}
-	return uberState
-}
-
+/*
 type Dependency struct {
 	Version string
 	Url string
@@ -207,16 +151,22 @@ var dependencies = map[string]Dependency{
 	},
 }
 
-func downloadExecutable(url, filepath string) {
+func downloadExecutable(url, filepath string) error {
 	f, err := os.OpenFile(filepath, os.O_CREATE|os.O_WRONLY, 0755)
-	Check(err)
+	if err != nil {
+		return err
+	}
 	defer f.Close()
 
 	resp, err := http.Get(url)
-	Check(err)
+	if err != nil {
+		return err
+	}
 	defer resp.Body.Close()
 	_, err = io.Copy(f, resp.Body)
-	Check(err)
+	if err != nil {
+		return err
+	}
 	os.Chmod(filepath, 0755)
 
 }
@@ -255,64 +205,7 @@ func Download(cmd string) {
 		}
 	}
 }
-
-
-func TerraformExport(config, providerName, name string, params map[string]string) {
-	dir := fmt.Sprintf("%s/terraform/%s", GetUberState(), providerName)
-	err := os.MkdirAll(dir, 0755)
-	Check(err)
-
-	path := fmt.Sprintf("%s/%s", dir, name)
-
-
-	configTemplate, err := template.New("terraform").Parse(config)
-	Check(err)
-
-	buf := bytes.Buffer{}
-	configTemplate.Execute(&buf, params)
-
-	err = ioutil.WriteFile(path, buf.Bytes(), 0644)
-	Check(err)
-}
-
-func TerraformApply(providerName string, resources []string, env Environment) {
-	path := fmt.Sprintf("%s/terraform/%s", GetUberState(), providerName)
-
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		fmt.Printf("Cannot apply terraform config - cannot find %s\n", path)
-		os.Exit(2)
-  	}
-
-	resourceTargets := make([]string, len(resources))
-	for i, resource := range resources {
-		resourceTargets[i] = "-target=" + resource
-	}
-	command := "terraform apply -refresh=true " + strings.Join(resourceTargets, " ")
-	Execute(command, env, path)
-}
-
-func TerraformOutput(providerName string, output string) string {
-	path := fmt.Sprintf("%s/terraform/%s", GetUberState(), providerName)
-	command := fmt.Sprintf("terraform output %s", output)
-	output, err := ExecuteAndRetrieve(command, nil, path)
-	Check(err)
-	return output
-}
-
-func TerraformDestroy(name string, env Environment) {
-	path := fmt.Sprintf("%s/terraform/%s", GetUberState(), name)
-	command := fmt.Sprintf("terraform destroy -state=%s/terraform.tfstate -refresh=true -force", path)
-	Execute(command, env, path)
-}
-
-func TerraformRemoveState(providerName string) {
-	uberState := GetUberState()
-	path1 := fmt.Sprintf("%s/terraform/%s/terraform.tfstate", uberState, providerName)
-	path2 := fmt.Sprintf("%s/terraform/%s/terraform.tfstate.backup", uberState, providerName)
-	os.Remove(path1)
-	os.Remove(path2)
-}
-
+*/
 func Ask(message string) string {
 	var answer string
 	fmt.Printf("%s: ", message)

@@ -90,7 +90,8 @@ func (p *HostProviderBase) Execute(host Host, command string, env ExecutionEnvir
 	}
 
 	log.Printf("Executing %s", command)
-	return executeBySSH(hostName, "ubuntu", signer, command)
+	_, err = executeBySSH(hostName, "ubuntu", signer, command)
+	return err
 }
 
 func (p *HostProviderBase) ExecuteWithRetrieve(host Host, command string) (string, error) {
