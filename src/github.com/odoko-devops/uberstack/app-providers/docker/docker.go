@@ -59,9 +59,6 @@ func (p *DockerAppProvider) StartApp(a config.App, envName string, env config.Ex
 		return fmt.Errorf("App %s requires a hostname to start", app.GetName())
 	}
 
-	log.Printf("Stacks: %s", app.Stacks)
-	log.Printf("Apps: %s", app.Apps)
-
 	if env == nil {
 		env = config.ExecutionEnvironment{}
 	}
@@ -97,5 +94,7 @@ func (p *DockerAppProvider) StartApp(a config.App, envName string, env config.Ex
 }
 
 func (p *DockerAppProvider) StopApp(app config.App, envName string) error {
+//	err := p.StopDependentApps(app, envName, env)
+//	return err
 	return nil
 }
