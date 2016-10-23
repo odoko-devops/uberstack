@@ -1,0 +1,6 @@
+type: host
+name: rancher01
+host-provider: rancher
+amazonec2:
+  instance_type: t2.small
+  public_key: ${PUBLIC_KEY}

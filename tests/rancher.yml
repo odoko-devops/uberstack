@@ -1,0 +1,12 @@
+type: host-provider
+impl: rancher
+name: rancher-aws
+labels:
+  some-label: foo
+amazonec2:
+  ami: ami-e3c3b8f4
+  region: us-east-1
+  zone: b
+  ssh_keypath: id_rsa
+  access_key: ${AWS_ACCESS_KEY}
+  secret_key: ${AWS_SECRET_KEY}
