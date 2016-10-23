@@ -21,6 +21,7 @@ type AppProviderBase struct {
 type AppProvider interface {
 	LoadApp(filename string) (App, error)
 	Resolve(text string, env ExecutionEnvironment) string
+	ResolveEnvironment(env ExecutionEnvironment) ExecutionEnvironment
 	SetState(state *State)
 
 	ConnectHost(host Host) error
@@ -32,7 +33,7 @@ type AppProvider interface {
 	StartDependentApps(app App, envName string, env ExecutionEnvironment) error
 	StopDependentApps(app App, envName string) error
 
-	ResolveOutputs(app App, output string) error
+	ResolveOutputs(app App, output []byte) error
 }
 
 func (p *AppProviderBase) LoadApp(filename string) (App, error) {
@@ -43,16 +44,19 @@ func (p *AppProviderBase) Resolve(text string, env ExecutionEnvironment) string 
 	return p.State.Resolve(text, env)
 }
 
+func (p *AppProviderBase) ResolveEnvironment(env ExecutionEnvironment) ExecutionEnvironment {
+	resolvedEnvironment := ExecutionEnvironment{}
+	for k, v := range env {
+		resolvedEnvironment[k] = p.Resolve(v, env)
+	}
+	return resolvedEnvironment
+}
+
 func (p *AppProviderBase) SetState(state *State) {
 	p.State = state
 }
 
 func (p *AppProviderBase) StartDependentApps(app App, envName string, env ExecutionEnvironment) error {
-	env = app.GetEnvironment(envName, env)
-	err := app.ConfirmRequired(env)
-	if err != nil {
-		return err
-	}
 	log.Printf("Dependent Apps: %s", app.GetApps())
 	for _, childApp := range app.GetApps() {
 		provider := app.GetAppProvider()
@@ -76,7 +80,7 @@ func (p *AppProviderBase) StopDependentApps(app App, envName string) error {
 	return nil
 }
 
-func (p *AppProviderBase) ResolveOutputs(app App, output string) error {
+func (p *AppProviderBase) ResolveOutputs(app App, output []byte) error {
 	outputs := app.GetOutputs()
 	if outputs != nil {
 		for k, v := range outputs {
@@ -84,8 +88,8 @@ func (p *AppProviderBase) ResolveOutputs(app App, output string) error {
 			if err != nil {
 				return err
 			}
-			value := r.FindString(output)
-			p.State.SetValue(k, value)
+			value := r.Find(output)
+			p.State.SetValue(k, string(value))
 		}
 	}
 	return nil

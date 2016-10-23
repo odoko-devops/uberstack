@@ -10,8 +10,8 @@ import (
 type RancherAppProvider struct {
 	config.AppProviderBase `yaml:",inline"`
 	RancherHost string `yaml:"rancher-host"`
-	AccessKey   string `yaml:"rancher-access-key"`
-	SecretKey   string `yaml:"rancher-secret-key"`
+	AccessKey   string `yaml:"access-key"`
+	SecretKey   string `yaml:"secret-key"`
 }
 
 type RancherApp struct {
@@ -37,6 +37,7 @@ func (p *RancherAppProvider) LoadApp(filename string) (config.App, error) {
 }
 
 func (p *RancherAppProvider) ConnectHost(host config.Host) error {
+	return nil ; // this is now handled by the rancher-host-provider
 	if p.State.GetHostValue(host, "connected") == "" {
 		// Here we need to install Rancher-agent
 		rancherHostname := p.Resolve(p.RancherHost, nil)
@@ -71,23 +72,41 @@ func (p *RancherAppProvider) DisconnectHost(host config.Host) error {
 func (p *RancherAppProvider) StartApp(a config.App, envName string, env config.ExecutionEnvironment) error {
 	app := a.(*RancherApp)
 
-	log.Printf("Starting %s", app.GetName())
 
 	if env == nil {
 		env = config.ExecutionEnvironment{}
 	}
-	innerEnv := app.Environments[envName].Environment
-	for k, v := range innerEnv {
-		env[k] = v
+	env = app.GetEnvironment(envName, env)
+	err := app.ConfirmRequired(env)
+	if err != nil {
+		return err
 	}
+	env = p.ResolveEnvironment(env)
+	log.Printf("Rancher compose environment: %s", env)
+
+	err = p.StartDependentApps(app, envName, env)
+	if err != nil {
+		return err
+	}
+
 	if app.RancherCompose != "" {
 		composePath, err := utils.Resolve(app.RancherCompose, false)
 
 		command := fmt.Sprintf(
 			`rancher-compose --file %s/docker-compose.yml
                         --rancher-file %s/rancher-compose.yml
-                        --project-name %s up
-                        `, composePath, composePath, app.GetName())
+                        --project-name %s
+                        --url http://%s/
+                        --access-key %s
+                        --secret-key %s
+                        up -d
+                        `, composePath,
+			   composePath,
+			app.GetName(),
+			p.Resolve(p.RancherHost, nil),
+			p.Resolve(p.AccessKey, nil),
+			p.Resolve(p.SecretKey, nil),
+		        )
 
 		_, err = utils.Execute(command, env, "")
 		if err != nil {
@@ -96,8 +115,7 @@ func (p *RancherAppProvider) StartApp(a config.App, envName string, env config.E
 	}
 	log.Printf("Started %s", a.GetName())
 
-	err := p.StartDependentApps(app, envName, env)
-	return err
+	return nil
 }
 
 func (p *RancherAppProvider) StopApp(a config.App, envName string) error {
