@@ -3,13 +3,15 @@ package uberstack
 import (
 	"testing"
 	"fmt"
+	"github.com/odoko-devops/uberstack/config"
 )
 
 /*
  * Can I successfully load a provider, and get one of a particular type?
  */
 func TestLoadProvider(t *testing.T) {
-	provider, err := LoadHostProvider("terraform")
+	state := new(config.State)
+	provider, err := LoadHostProvider("terraform", state)
 	if err != nil {
 		t.Error(err)
 	}
