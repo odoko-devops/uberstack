@@ -4,6 +4,8 @@ import (
 	"log"
 	"io/ioutil"
 	"fmt"
+	"strings"
+	"os"
 )
 
 type HostProviderBase struct {
@@ -21,6 +23,7 @@ type HostBase struct {
 	Config map[string]string
 	HostProvider HostProvider
 	HostName string `yaml:"host-name"`// this is the name or IP via which the host is accessible
+	Required []string
 }
 
 type HostProvider interface {
@@ -40,7 +43,7 @@ type HostProvider interface {
 
 	UploadFile(host Host, filename string, destination string) error
 	UploadScript(host Host, script string, destination string) error
-	Execute(host Host, command string, env ExecutionEnvironment) error
+	Execute(host Host, command string, env ExecutionEnvironment) ([]byte, error)
 	ExecuteWithRetrieve(host Host, command string) (string, error)
 	InstallDockerOnUbuntu(host Host) error
 }
@@ -49,6 +52,7 @@ type Host interface {
 	GetName() string
 	GetHostProvider() HostProvider
 	GetHostName() string // this is a name or IP via which the host is accessible
+	ConfirmRequired(env ExecutionEnvironment) error
 }
 
 func (p *HostProviderBase) GetConfig(name string) string {
@@ -81,17 +85,17 @@ func (p *HostProviderBase) SetState(state *State) {
 func (p *HostProviderBase) GetState() *State {
 	return p.State
 }
-func (p *HostProviderBase) Execute(host Host, command string, env ExecutionEnvironment) error {
+func (p *HostProviderBase) Execute(host Host, command string, env ExecutionEnvironment) ([]byte, error) {
 	hostName := p.Resolve(host.GetHostName(), env)
 	log.Printf("Resolved hostname %s to %s", host.GetHostName(), hostName)
 	signer, err := getKeyFile()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	log.Printf("Executing %s", command)
-	_, err = executeBySSH(hostName, "ubuntu", signer, command)
-	return err
+	output, err := executeBySSH(hostName, "ubuntu", signer, command)
+	return output, err
 }
 
 func (p *HostProviderBase) ExecuteWithRetrieve(host Host, command string) (string, error) {
@@ -150,5 +154,27 @@ func (p *HostProviderBase) InstallDockerOnUbuntu(host Host) error {
 		sudo service docker start &&
 		sudo gpasswd -a ubuntu docker
 		`
-	return p.Execute(host, ubuntuDockerInstallScript, nil)
+	_, err := p.Execute(host, ubuntuDockerInstallScript, nil)
+	return err
+}
+
+func (h *HostBase) ConfirmRequired(env ExecutionEnvironment) error {
+	missing := []string{}
+	for _, variable := range h.Required {
+		ok := false
+		if env!= nil {
+			_, ok = env[variable]
+		}
+		envValue := os.Getenv(variable)
+		if !ok && envValue == "" {
+			missing = append(missing, variable)
+		}
+	}
+	if len(missing) == 0 {
+		return nil
+	} else {
+		return fmt.Errorf("Please provide required variables: %s", strings.Join(missing, ", "))
+	}
+
+	return nil
 }
