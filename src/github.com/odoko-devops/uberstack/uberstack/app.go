@@ -7,15 +7,12 @@ import (
 	"github.com/odoko-devops/uberstack/config"
 )
 
-const (
-	stateFile = "state.yml"
-)
 func ProcessHost(args []string) error {
 	action := args[1]
 	hostName := args[2]
 
 	state := new(config.State)
-	state.Load(stateFile)
+	state.Load()
 
 	host, err := LoadHost(hostName, state)
 	if err != nil {
@@ -46,7 +43,7 @@ func ProcessHost(args []string) error {
 		}
 		log.Printf("Docker installed on %s.", host.GetName())
 	case "ssh":
-		err = provider.Execute(host, strings.Join(args[4:], " "), nil)
+		_, err = provider.Execute(host, strings.Join(args[4:], " "), nil)
 	case "rm", "destroy":
 		err = provider.DeleteHost(host)
 		log.Printf("Host %s deleted.", host.GetName())
@@ -56,7 +53,7 @@ func ProcessHost(args []string) error {
 	if err != nil {
 		return err
 	}
-	err = state.Save(stateFile)
+	err = state.Save()
 	return err
 }
 
@@ -69,7 +66,7 @@ func ProcessApp(args []string) error {
 	log.Printf("Env: %s", envName)
 
 	state := new(config.State)
-	state.Load(stateFile)
+	state.Load()
 
 	app, err := LoadApp(appName, state)
 	if err != nil {
@@ -107,6 +104,6 @@ func ProcessApp(args []string) error {
 	default:
 		log.Printf("Unknown action:", action)
 	}
-	err = state.Save(stateFile)
+	err = state.Save()
 	return err
 }

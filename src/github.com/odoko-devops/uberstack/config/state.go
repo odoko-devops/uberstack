@@ -74,13 +74,21 @@ func (s *State) Resolve(text string, env ExecutionEnvironment) string {
 			return os.Getenv(name)
 		})
 	}
-	log.Printf("RESOLVED TO: %s", text)
 	return text
 }
 
-func (s *State) Load(stateFile string) error {
+func (s *State) GetStateFilename() string {
+	uberState := os.Getenv("UBER_STATE")
+	if uberState == "" {
+		uberState = os.Getenv("UBER_HOME")
+	}
+	return fmt.Sprintf("%s/state.yml", uberState)
+}
+
+func (s *State) Load() error {
+	stateFile := s.GetStateFilename()
 	if _, err := os.Stat(stateFile) ;os.IsNotExist(err) {
-		log.Println("Not loading state, can't find file")
+		log.Println("Not loading state, can't find file at ", stateFile)
 		return nil // it isn't an error if a state file does not exist.
 	}
 	log.Println("Loading state from", stateFile)
@@ -89,12 +97,11 @@ func (s *State) Load(stateFile string) error {
 		return err
 	}
 	err = yaml.Unmarshal(bytes, s)
-	log.Printf("Variables: %s", s.VariableMap)
-	log.Printf("XX: %s", *s.VariableMap["host.dev-host.dev_host_ip"])
 	return err
 }
 
-func (s *State) Save(stateFile string) error {
+func (s *State) Save() error {
+	stateFile := s.GetStateFilename()
 	log.Printf("Saving state as %s from %s", stateFile, *s)
 	bytes, err := yaml.Marshal(s)
 	if err != nil {
