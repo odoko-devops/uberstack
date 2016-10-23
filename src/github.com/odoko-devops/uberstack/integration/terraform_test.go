@@ -7,7 +7,7 @@ import (
 	"errors"
 	"strings"
 	"bytes"
-	u "github.com/odoko-devops/uberstack/uberstack"
+	"github.com/odoko-devops/uberstack/uberstack"
 	"fmt"
 	"runtime/debug"
 )
@@ -32,7 +32,8 @@ func iExecute(command string) (err error) {
 
 	var buf bytes.Buffer
 	log.SetOutput(&buf)
-	err = u.ProcessHost(strings.Split(command, " "))
+	commandParts := strings.Split(command, " ")
+	err = uberstack.ProcessHost(commandParts[1:])
 	log.SetOutput(os.Stderr)
 	response = buf.String()
 	log.Println(response)
