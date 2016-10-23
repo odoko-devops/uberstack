@@ -58,13 +58,10 @@ func (p *DockerAppProvider) StartApp(a config.App, envName string, env config.Ex
 	if app.Host == nil {
 		return fmt.Errorf("App %s requires a hostname to start", app.GetName())
 	}
-
-	if env == nil {
-		env = config.ExecutionEnvironment{}
-	}
-	innerEnv := app.Environments[envName].Environment
-	for k, v := range innerEnv {
-		env[k] = v
+	env = app.GetEnvironment(envName, env)
+	err := app.ConfirmRequired(env)
+	if err != nil {
+		return err
 	}
 	provider := app.Host.GetHostProvider()
 	if app.DockerCompose != "" {
@@ -82,14 +79,15 @@ func (p *DockerAppProvider) StartApp(a config.App, envName string, env config.Ex
 			return err
 		}
 		command := fmt.Sprintf("docker-compose -f /tmp/docker-compose.yml -p %s up -d", app.GetName())
-		err = provider.Execute(app.Host, command, env)
+		output, err := provider.Execute(app.Host, command, env)
 		if err != nil {
 			return err
 		}
+		p.ResolveOutputs(app, output)
 	}
 	log.Printf("Started %s", a.GetName())
 
-	err := p.StartDependentApps(app, envName, env)
+	err = p.StartDependentApps(app, envName, env)
 	return err
 }
 
