@@ -1,0 +1,4 @@
+type: app-provider
+impl: docker
+name: docker
+docker-type: docker-machine

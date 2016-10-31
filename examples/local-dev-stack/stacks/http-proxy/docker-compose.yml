@@ -1,0 +1,9 @@
+http-proxy:
+  image: odoko/auth-proxy:1.0.1
+  ports:
+   - 80:80
+  environment:
+    JENKINS_HOSTNAME: ${JENKINS_HOST}
+    JENKINS_PORT: 8081
+    RANCHER_HOSTNAME: ${RANCHER_HOST}
+    RANCHER_PORT: 8080
