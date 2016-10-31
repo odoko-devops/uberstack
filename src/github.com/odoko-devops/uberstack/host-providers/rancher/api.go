@@ -28,7 +28,7 @@ func getEnvironmentId(rancherHost, accessKey, secretKey string, environmentName 
 		resp, err := client.Do(req)
 		if (err != nil) {
 			time.Sleep(5*time.Second)
-			println("Waiting for Rancher...")
+			log.Println("Waiting for Rancher...")
 			continue
 		}
 		envData := EnvData{}
