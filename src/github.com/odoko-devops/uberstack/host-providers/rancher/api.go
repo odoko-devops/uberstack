@@ -36,7 +36,7 @@ func getEnvironmentId(rancherHost, accessKey, secretKey string, environmentName 
 
 		if (err != nil && err!=io.EOF) {
 			time.Sleep(5*time.Second)
-			println("Waiting for Rancher...")
+			log.Println("Waiting for Rancher...")
 			continue
 		}
 		for _, account := range envData.Data {
@@ -44,6 +44,7 @@ func getEnvironmentId(rancherHost, accessKey, secretKey string, environmentName 
 				return account.Id
 			}
 		}
+		log.Printf("No account found. Retrying (%s, %s)", envData, resp.Body)
 		time.Sleep(5 * time.Second)
 	}
 }
