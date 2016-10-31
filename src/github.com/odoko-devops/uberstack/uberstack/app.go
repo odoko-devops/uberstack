@@ -37,11 +37,6 @@ func ProcessHost(args []string) error {
 			log.Printf("Set %s=%s for %s", k, v, host.GetName())
 		}
 		log.Printf("Host %s created.", host.GetName())
-		err = provider.InstallDockerOnUbuntu(host)  // @todo should not be hardwired.
-		if err != nil {
-			return err
-		}
-		log.Printf("Docker installed on %s.", host.GetName())
 	case "ssh":
 		_, err = provider.Execute(host, strings.Join(args[4:], " "), nil)
 	case "rm", "destroy":
