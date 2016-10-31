@@ -16,6 +16,7 @@ type TerraformHostProvider struct {
 	Variables map[string]string
 	Resources []string
 	Outputs []string
+	InstallDocker bool `yaml:"install-docker"`
 }
 
 type TerraformHost struct {
@@ -50,6 +51,11 @@ func (p *TerraformHostProvider) LoadHost(filename string) (config.Host, error) {
 
 func (p *TerraformHostProvider) CreateHost(h config.Host) (map[string]string, map[string]string, error) {
 	host := h.(*TerraformHost)
+
+	err := host.ConfirmRequired(nil)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	filepath, err := utils.Resolve(p.TerraformDirectory, false)
 	if err != nil {
@@ -88,6 +94,13 @@ func (p *TerraformHostProvider) CreateHost(h config.Host) (map[string]string, ma
 		return nil, nil, err
 	}
 
+	if p.InstallDocker {
+		err = p.InstallDockerOnHost(*host, p.SshUser)
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+
 	resolvedOutputs := map[string]string{}
 	for _, output := range outputList {
 		command := fmt.Sprintf("terraform output %s", output)
@@ -106,6 +119,31 @@ func (p *TerraformHostProvider) CreateHost(h config.Host) (map[string]string, ma
 	}
 
 	return resolvedOutputs, resolvedHostOutputs, nil
+}
+
+func (p *TerraformHostProvider) InstallDockerOnHost(host TerraformHost, sshUser string) error {
+	var command string
+
+	switch sshUser {
+	case "ubuntu":
+		command = `
+		sudo apt-get update &&
+		sudo apt-get install -y apt-transport-https ca-certificates curl &&
+		sudo apt-key adv --keyserver hkp://p80.pool.sks-keyservers.net:80 --recv-keys 58118E89F3A912897C070ADBF76221572C52609D &&
+		echo "deb https://apt.dockerproject.org/repo ubuntu-xenial main" | sudo tee /etc/apt/sources.list.d/docker.list &&
+		sudo apt-get update &&
+		sudo apt-get install -y linux-image-extra-$(uname -r) linux-image-extra-virtual &&
+		sudo apt-get install -y docker-engine &&
+		sudo service docker start &&
+		sudo gpasswd -a ubuntu docker
+		sudo curl -L "https://github.com/docker/compose/releases/download/1.8.1/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+		sudo chmod 755 /usr/local/bin/docker-compose`
+	default:
+		return fmt.Errorf("Unknown Docker installation user: %s", sshUser)
+	}
+	log.Println("Installing docker on", host.GetName())
+	_, err := p.Execute(&host, command, nil)
+	return err
 }
 
 func (p *TerraformHostProvider) DeleteHost(h config.Host) (error) {
