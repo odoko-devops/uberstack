@@ -10,6 +10,7 @@ import (
 
 type DockerAppProvider struct {
 	config.AppProviderBase `yaml:",inline"`
+	DockerType string `yaml:"docker-type"`
 }
 
 type DockerApp struct {
@@ -36,13 +37,6 @@ func (p *DockerAppProvider) LoadApp(filename string) (config.App, error) {
 }
 
 func (p *DockerAppProvider) ConnectHost(host config.Host) error {
-	if p.State.GetHostValue(host, "connected") == "" {
-		// Here we need to install docker-compose
-		provider := host.GetHostProvider()
-		provider.Execute(host, "sudo apt-get install -y python-pip", nil)
-		provider.Execute(host, "sudo pip install docker-compose", nil)
-		p.State.SetHostValue(host, "connected", "connected")
-	}
 	return nil
 }
 
@@ -55,7 +49,7 @@ func (p *DockerAppProvider) StartApp(a config.App, envName string, env config.Ex
 	app := a.(*DockerApp)
 
 	log.Printf("Starting %s", app.GetName())
-	if app.Host == nil {
+	if app.Host == nil && ! (p.DockerType == "local") {
 		return fmt.Errorf("App %s requires a hostname to start", app.GetName())
 	}
 	env = app.GetEnvironment(envName, env)
@@ -63,32 +57,82 @@ func (p *DockerAppProvider) StartApp(a config.App, envName string, env config.Ex
 	if err != nil {
 		return err
 	}
-	provider := app.Host.GetHostProvider()
+	err = p.StartDependentApps(app, envName, env)
+	if err != nil {
+		return err
+	}
 	if app.DockerCompose != "" {
 		dockerComposePath, err := utils.Resolve(fmt.Sprintf("%s/docker-compose.yml", app.DockerCompose), false)
 		if err != nil {
 			return err
 		}
-		composeBytes, err := ioutil.ReadFile(dockerComposePath)
-		if err != nil {
+		if p.DockerType == "local" {
+			command := fmt.Sprintf("docker-compose -f %s -p %s up -d", dockerComposePath, app.GetName())
+			log.Printf("LOCAL COMMAND: %s", command)
+			output, err := utils.Execute(command, env, "")
+			if err != nil {
+				return err
+			}
+			p.ResolveOutputs(app, output)
+		} else if p.DockerType == "docker-machine" {
+			command := fmt.Sprintf("docker-machine env %s", app.Host.GetHostName())
+			script, err := utils.ExecuteAndRetrieve(command, nil, "")
+			if err != nil {
+				return err
+			}
+			composeBytes, err := ioutil.ReadFile(dockerComposePath)
+			if err != nil {
+				return err
+			}
+			provider := app.Host.GetHostProvider()
+			compose := provider.Resolve(string(composeBytes), env)
+			ioutil.WriteFile("/tmp/uberstack-docker-compose.yml", []byte(compose), 0644)
+			command = fmt.Sprintf("docker-machine scp /tmp/uberstack-docker-compose.yml %s:/tmp/", app.Host.GetHostName())
+			_, err = utils.Execute(command, env, "")
+			if err != nil {
+				return err
+			}
+			script = fmt.Sprintf(`#!/bin/sh
+						%s
+						docker-compose -f /tmp/uberstack-docker-compose.yml -p %s up -d`,
+				script, app.GetName())
+			ioutil.WriteFile("/tmp/uberstack-docker.sh", []byte(script), 0755)
+
+			command = fmt.Sprintf("docker-machine scp /tmp/uberstack-docker.sh %s:/tmp/uberstack-docker.sh", app.Host.GetHostName())
+			_, err = utils.Execute(command, env, "")
+			if err != nil {
+				return err
+			}
+			command = fmt.Sprintf("docker-machine ssh %s /tmp/uberstack-docker.sh", app.Host.GetHostName())
+			log.Printf("MACHINE COMMAND: %s", command)
+			output, err := utils.Execute(command, env, "")
+			if err != nil {
+				return err
+			}
+			p.ResolveOutputs(app, output)
+		} else {
+			log.Printf("Running remote app on %s", app.GetHost().GetHostName())
+			composeBytes, err := ioutil.ReadFile(dockerComposePath)
+			if err != nil {
+				return err
+			}
+			provider := app.Host.GetHostProvider()
+			compose := provider.Resolve(string(composeBytes), env)
+			err = provider.UploadScript(app.Host, compose, "/tmp/docker-compose.yml")
+			if err != nil {
+				return err
+			}
+			command := fmt.Sprintf("docker-compose -f /tmp/docker-compose.yml -p %s up -d", app.GetName())
+			output, err := provider.Execute(app.Host, command, env)
+			if err != nil {
+				return err
+			}
+			p.ResolveOutputs(app, output)
 			return err
 		}
-		compose := provider.Resolve(string(composeBytes), env)
-		err = provider.UploadScript(app.Host, compose, "/tmp/docker-compose.yml")
-		if err != nil {
-			return err
-		}
-		command := fmt.Sprintf("docker-compose -f /tmp/docker-compose.yml -p %s up -d", app.GetName())
-		output, err := provider.Execute(app.Host, command, env)
-		if err != nil {
-			return err
-		}
-		p.ResolveOutputs(app, output)
 	}
 	log.Printf("Started %s", a.GetName())
-
-	err = p.StartDependentApps(app, envName, env)
-	return err
+	return nil
 }
 
 func (p *DockerAppProvider) StopApp(app config.App, envName string) error {
