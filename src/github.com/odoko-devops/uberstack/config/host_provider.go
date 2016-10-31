@@ -9,21 +9,22 @@ import (
 )
 
 type HostProviderBase struct {
-	Type string
-	Name string
-	Impl string
+	Type         string
+	Name         string
+	Impl         string
 	PublicSSHKey string
-	Config map[string]string
-	State *State
+	SshUser      string `yaml:"ssh-user"`
+	Config       map[string]string
+	State        *State
 }
 
 type HostBase struct {
-	Name string
+	Name                 string
 	HostProviderFilename string `yaml:"host-provider"`
-	Config map[string]string
-	HostProvider HostProvider
-	HostName string `yaml:"host-name"`// this is the name or IP via which the host is accessible
-	Required []string
+	Config               map[string]string
+	HostProvider         HostProvider
+	HostName             string `yaml:"host-name"` // this is the name or IP via which the host is accessible
+	Required             []string
 }
 
 type HostProvider interface {
@@ -45,7 +46,6 @@ type HostProvider interface {
 	UploadScript(host Host, script string, destination string) error
 	Execute(host Host, command string, env ExecutionEnvironment) ([]byte, error)
 	ExecuteWithRetrieve(host Host, command string) (string, error)
-	InstallDockerOnUbuntu(host Host) error
 }
 
 type Host interface {
@@ -94,7 +94,7 @@ func (p *HostProviderBase) Execute(host Host, command string, env ExecutionEnvir
 	}
 
 	log.Printf("Executing %s", command)
-	output, err := executeBySSH(hostName, "ubuntu", signer, command)
+	output, err := executeBySSH(hostName, p.SshUser, signer, command)
 	return output, err
 }
 
@@ -117,7 +117,7 @@ func (p *HostProviderBase) UploadScript(host Host, script string, destination st
 	if err != nil {
 		return err
 	}
-	uploadViaSCP(hostName, "ubuntu", signer, script, destination)
+	uploadViaSCP(hostName, p.SshUser, signer, script, destination)
 	return nil
 }
 
@@ -141,28 +141,11 @@ func (h *HostBase) GetHostName() string {
 	return h.HostName
 }
 
-func (p *HostProviderBase) InstallDockerOnUbuntu(host Host) error {
-	log.Println("Installing docker on", host.GetName())
-	var ubuntuDockerInstallScript=`
-		sudo apt-get update &&
-		sudo apt-get install -y apt-transport-https ca-certificates &&
-		sudo apt-key adv --keyserver hkp://p80.pool.sks-keyservers.net:80 --recv-keys 58118E89F3A912897C070ADBF76221572C52609D &&
-		echo "deb https://apt.dockerproject.org/repo ubuntu-xenial main" | sudo tee /etc/apt/sources.list.d/docker.list &&
-		sudo apt-get update &&
-		sudo apt-get install -y linux-image-extra-$(uname -r) linux-image-extra-virtual &&
-		sudo apt-get install -y docker-engine &&
-		sudo service docker start &&
-		sudo gpasswd -a ubuntu docker
-		`
-	_, err := p.Execute(host, ubuntuDockerInstallScript, nil)
-	return err
-}
-
 func (h *HostBase) ConfirmRequired(env ExecutionEnvironment) error {
 	missing := []string{}
 	for _, variable := range h.Required {
 		ok := false
-		if env!= nil {
+		if env != nil {
 			_, ok = env[variable]
 		}
 		envValue := os.Getenv(variable)
