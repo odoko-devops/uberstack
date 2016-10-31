@@ -65,6 +65,9 @@ func (s *State) Get(name string) string {
 func (s *State) Resolve(text string, env ExecutionEnvironment) string {
 	for ; strings.Contains(text, "${"); {
 		text = os.Expand(text, func(name string) string {
+			if strings.HasPrefix(name, "$") {
+				return name
+			}
 			if envVal, ok := env[name]; ok {
 				return envVal
 			}
