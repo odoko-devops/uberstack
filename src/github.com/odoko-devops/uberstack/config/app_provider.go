@@ -146,14 +146,22 @@ func (a *AppBase) GetStacks() []string {
 }
 
 func (a *AppBase) GetEnvironment(envName string, env ExecutionEnvironment) ExecutionEnvironment {
-	if env == nil {
-		return a.Environments[envName].Environment
-	} else {
-		for k,v := range a.Environments[envName].Environment {
-			env[k]=v
-		}
-		return env
+	newEnv := ExecutionEnvironment{}
+	for _, e := range os.Environ() {
+		parts := strings.SplitN(e, "=", 2)
+		k := parts[0]
+		v := parts[1]
+		newEnv[k] = v
 	}
+	if env != nil {
+		for k, v := range env {
+			newEnv[k] = v
+		}
+	}
+	for k, v := range a.Environments[envName].Environment {
+		newEnv[k]=v
+	}
+	return newEnv
 }
 
 func (a *AppBase) GetEnvironments() map[string]DeploymentEnvironment {
