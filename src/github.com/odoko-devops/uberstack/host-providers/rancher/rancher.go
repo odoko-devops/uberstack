@@ -28,7 +28,7 @@ type AmazonEc2Config struct {
 
 	Region        string
 	Zone          string
-	VpcId         string
+	VpcId         string `yaml:"vpc-id"`
 	SubnetId      string `yaml:"subnet-id"`
 
 	Ami           string
