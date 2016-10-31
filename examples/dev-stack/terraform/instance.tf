@@ -11,6 +11,9 @@ resource "aws_instance" "dev_host" {
   tags {
     Name = "dev_host"
   }
+  root_block_device {
+    volume_size = 40
+  }
 }
 
 resource "aws_eip_association" "dev_host" {
