@@ -1,0 +1,76 @@
+package cmd
+
+import (
+	//"time"
+	"context"
+
+	"github.com/Sirupsen/logrus"
+	//"github.com/rancher/go-rancher/v3"
+	"github.com/urfave/cli"
+	etcd "github.com/coreos/etcd/client"
+)
+
+func EtcdCommand() cli.Command {
+	hostLsFlags := []cli.Flag{
+	}
+
+	return cli.Command{
+		Name:      "etcd",
+		ShortName: "etcd",
+		Usage:     "Operations on etcd",
+		Action:    defaultAction(etcdAction),
+		Flags:     hostLsFlags,
+		Subcommands: []cli.Command{
+			cli.Command{
+				Name:        "ls",
+				Usage:       "List etcd",
+				Description: "\nList ectd data\n",
+				ArgsUsage:   "None",
+				Action:      etcdAction,
+				Flags:       hostLsFlags,
+			},
+		},
+	}
+}
+
+
+func etcdAction(ctx *cli.Context) error {
+	//c, err := GetClient(ctx)
+
+	logrus.Info("Etcd start")
+        cfg := etcd.Config{
+		Endpoints:               []string{"http://127.0.0.1:2379"},
+//		Transport:               etcd.DefaultTransport,
+		// set timeout per request to fail fast when the target endpoint is unavailable
+//		HeaderTimeoutPerRequest: 2*time.Second,
+	}
+	c, err := etcd.New(cfg)
+	if err != nil {
+		logrus.Fatal(err)
+	}
+	logrus.Info("NewKeysAPI:")
+	kapi := etcd.NewKeysAPI(c)
+	// set "/foo" key with "bar" value
+	logrus.Print("Setting '/foo' key with 'bar' value")
+	resp, err := kapi.Set(context.Background(), "/foo", "bar", nil)
+	if err != nil {
+		logrus.Fatal(err)
+	} else {
+		// print common key info
+		logrus.Printf("Set is done. Metadata is %q\n", resp)
+	}
+	// get "/foo" key's value
+	logrus.Print("Getting '/foo' key value")
+	resp, err = kapi.Get(context.Background(), "/foo", nil)
+	if err != nil {
+		logrus.Fatal(err)
+	} else {
+		// print common key info
+		logrus.Printf("Get is done. Metadata is %q\n", resp)
+		// print value
+		logrus.Printf("%q key has %q value\n", resp.Node.Key, resp.Node.Value)
+	}
+
+	logrus.Info("Etcd")
+	return nil
+}
