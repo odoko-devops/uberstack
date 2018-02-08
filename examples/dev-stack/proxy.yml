@@ -1,3 +1,0 @@
-name: proxy
-app-provider: docker
-docker-compose: stacks/http-proxy

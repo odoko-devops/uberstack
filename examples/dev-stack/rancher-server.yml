@@ -1,6 +1,0 @@
-name: rancher-server
-app-provider: docker
-docker-compose: stacks/rancher-server
-outputs:
-  rancher_access_key: "rancher_access_key:([^ ]+)"
-  rancher_secret_key: "rancher_secret_key:([^ ]+)"

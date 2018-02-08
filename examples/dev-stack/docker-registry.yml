@@ -1,3 +1,0 @@
-name: docker-registry
-app-provider: docker
-docker-compose: stacks/docker-registry

@@ -1,3 +1,0 @@
-name: jenkins
-app-provider: docker
-docker-compose: stacks/jenkins
