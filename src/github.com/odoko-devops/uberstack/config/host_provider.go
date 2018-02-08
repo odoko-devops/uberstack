@@ -39,11 +39,11 @@ type HostProvider interface {
 	GetType() string
 	GetImpl() string
 
-	CreateHost(Host) (map[string]string, map[string]string, error)
+	CreateHost(Host, ExecutionEnvironment) (map[string]string, map[string]string, error)
 	DeleteHost(Host) (error)
 
-	UploadFile(host Host, filename string, destination string) error
-	UploadScript(host Host, script string, destination string) error
+	UploadFile(host Host, filename string, destination string, env ExecutionEnvironment) error
+	UploadScript(host Host, script string, destination string, env ExecutionEnvironment) error
 	Execute(host Host, command string, env ExecutionEnvironment) ([]byte, error)
 	ExecuteWithRetrieve(host Host, command string) (string, error)
 }
@@ -102,16 +102,16 @@ func (p *HostProviderBase) ExecuteWithRetrieve(host Host, command string) (strin
 	return "", nil
 }
 
-func (p *HostProviderBase) UploadFile(host Host, filename string, destination string) error {
+func (p *HostProviderBase) UploadFile(host Host, filename string, destination string, env ExecutionEnvironment) error {
 	data, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return fmt.Errorf("Failed to load %s: %s", filename, err)
 	}
-	return p.UploadScript(host, string(data), destination)
+	return p.UploadScript(host, string(data), destination, env)
 }
 
-func (p *HostProviderBase) UploadScript(host Host, script string, destination string) error {
-	hostName := p.Resolve(host.GetHostName(), nil)
+func (p *HostProviderBase) UploadScript(host Host, script string, destination string, env ExecutionEnvironment) error {
+	hostName := p.Resolve(host.GetHostName(), env)
 	log.Printf("Resolved hostname %s to %s", host.GetHostName(), hostName)
 	signer, err := getKeyFile()
 	if err != nil {

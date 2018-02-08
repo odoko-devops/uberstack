@@ -72,7 +72,6 @@ func (p *RancherAppProvider) DisconnectHost(host config.Host) error {
 func (p *RancherAppProvider) StartApp(a config.App, envName string, env config.ExecutionEnvironment) error {
 	app := a.(*RancherApp)
 
-
 	if env == nil {
 		env = config.ExecutionEnvironment{}
 	}
@@ -82,7 +81,6 @@ func (p *RancherAppProvider) StartApp(a config.App, envName string, env config.E
 		return err
 	}
 	env = p.ResolveEnvironment(env)
-	log.Printf("Rancher compose environment: %s", env)
 
 	err = p.StartDependentApps(app, envName, env)
 	if err != nil {
@@ -103,9 +101,9 @@ func (p *RancherAppProvider) StartApp(a config.App, envName string, env config.E
                         `, composePath,
 			   composePath,
 			app.GetName(),
-			p.Resolve(p.RancherHost, nil),
-			p.Resolve(p.AccessKey, nil),
-			p.Resolve(p.SecretKey, nil),
+			p.Resolve(p.RancherHost, env),
+			p.Resolve(p.AccessKey, env),
+			p.Resolve(p.SecretKey, env),
 		        )
 
 		_, err = utils.Execute(command, env, "")

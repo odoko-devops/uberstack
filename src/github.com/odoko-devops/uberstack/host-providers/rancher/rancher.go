@@ -86,24 +86,24 @@ func (p *RancherHostProvider) LoadHost(filename string) (config.Host, error) {
 	return host, nil
 }
 
-func (p *RancherHostProvider) resolve(providerValue, hostValue string) string {
+func (p *RancherHostProvider) resolve(providerValue, hostValue string, env config.ExecutionEnvironment) string {
 	if hostValue != "" {
-		return p.Resolve(hostValue, nil)
+		return p.Resolve(hostValue, env)
 	} else {
-		return p.Resolve(providerValue, nil)
+		return p.Resolve(providerValue, env)
 	}
 }
-func (p *RancherHostProvider) CreateHost(h config.Host) (map[string]string, map[string]string, error) {
+func (p *RancherHostProvider) CreateHost(h config.Host, env config.ExecutionEnvironment) (map[string]string, map[string]string, error) {
 
 	host := h.(*RancherHost)
 
 	log.Printf("HOST: %s", host)
 	log.Printf("AWS: %s", host.AmazonEc2)
-	rancherHost := p.Resolve(p.RancherHost, nil)
-	accessKey := p.Resolve(p.AccessKey, nil)
-	secretKey := p.Resolve(p.SecretKey, nil)
+	rancherHost := p.Resolve(p.RancherHost, env)
+	accessKey := p.Resolve(p.AccessKey, env)
+	secretKey := p.Resolve(p.SecretKey, env)
 
-	err := host.ConfirmRequired(nil)
+	err := host.ConfirmRequired(env)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -127,24 +127,24 @@ func (p *RancherHostProvider) CreateHost(h config.Host) (map[string]string, map[
 			rootSize = hAws.RootSize
 		}
 		hostData["amazonec2Config"] = map[string]interface{} {
-			"accessKey": p.resolve(pAws.AccessKey, hAws.AccessKey),
-			"secretKey": p.resolve(pAws.SecretKey, hAws.SecretKey),
-			"ami": p.resolve(pAws.Ami, hAws.Ami),
+			"accessKey": p.resolve(pAws.AccessKey, hAws.AccessKey, env),
+			"secretKey": p.resolve(pAws.SecretKey, hAws.SecretKey, env),
+			"ami": p.resolve(pAws.Ami, hAws.Ami, env),
 			"deviceName": "/dev/sda1",
-			"iamInstanceProfile": p.resolve(pAws.IamProfile, hAws.IamProfile),
-			"instanceType": p.resolve(pAws.InstanceType, hAws.InstanceType),
-			"region": p.resolve(pAws.Region, hAws.Region),
+			"iamInstanceProfile": p.resolve(pAws.IamProfile, hAws.IamProfile, env),
+			"instanceType": p.resolve(pAws.InstanceType, hAws.InstanceType, env),
+			"region": p.resolve(pAws.Region, hAws.Region, env),
 			"rootSize": rootSize,
-			"securityGroup": p.resolve(pAws.SecurityGroup, hAws.SecurityGroup),
+			"securityGroup": p.resolve(pAws.SecurityGroup, hAws.SecurityGroup, env),
 			"sessionToken": "",
 			"spotPrice": "",
-			"sshKeypath": p.resolve(pAws.SshKeyPath, hAws.SshKeyPath),
-			"sshUser": p.resolve(pAws.SshUser, hAws.SshUser),
-			"subnetId": p.resolve(pAws.SubnetId, hAws.SubnetId),
+			"sshKeypath": p.resolve(pAws.SshKeyPath, hAws.SshKeyPath, env),
+			"sshUser": p.resolve(pAws.SshUser, hAws.SshUser, env),
+			"subnetId": p.resolve(pAws.SubnetId, hAws.SubnetId, env),
 			"tags": "",
 			"volumeType": "gp2",
-			"vpcId": p.resolve(pAws.VpcId, hAws.VpcId),
-			"zone": p.resolve(pAws.Zone, hAws.Zone),
+			"vpcId": p.resolve(pAws.VpcId, hAws.VpcId, env),
+			"zone": p.resolve(pAws.Zone, hAws.Zone, env),
 			"type": "amazonec2Config",
 		}
 	}
@@ -152,7 +152,6 @@ func (p *RancherHostProvider) CreateHost(h config.Host) (map[string]string, map[
 	if err != nil {
 		return nil, nil, err
 	}
-log.Println(string(hostBytes))
 	log.Printf("GETTING ENVIRONMENT FROM %s", p.RancherHost)
 	rancherEnv := getEnvironmentId(rancherHost, accessKey, secretKey, environment)
 	url := fmt.Sprintf("http://%s/v1/projects/%s/machine", rancherHost, rancherEnv)
@@ -178,7 +177,7 @@ log.Println(string(hostBytes))
 	if (err != nil && err != io.EOF) {
 		return nil, nil, err
 	}
-	log.Println("Created host id:%s", result.Id)
+	log.Printf("Created host id:%s", result.Id)
 	return map[string]string{}, map[string]string{}, nil
 }
 

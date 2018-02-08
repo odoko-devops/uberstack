@@ -5,14 +5,23 @@ import (
 	"log"
 	"strings"
 	"github.com/odoko-devops/uberstack/config"
+	"os"
 )
 
-func ProcessHost(args []string) error {
+func ProcessHost(args []string, envFiles []string) error {
 	action := args[1]
 	hostName := args[2]
 
+	env, err := LoadEnv(envFiles)
+	if err != nil {
+		return err
+	}
+	if env["UBER_HOME"] != "" {
+		os.Setenv("UBER_HOME", env["UBER_HOME"])
+	}
+
 	state := new(config.State)
-	state.Load()
+	state.Load(env)
 
 	host, err := LoadHost(hostName, state)
 	if err != nil {
@@ -25,7 +34,7 @@ func ProcessHost(args []string) error {
 	}
 	switch action {
 	case "up":
-		outputs, hostOutputs, err := provider.CreateHost(host)
+		outputs, hostOutputs, err := provider.CreateHost(host, env)
 		if err != nil {
 			return err
 		}
@@ -48,11 +57,11 @@ func ProcessHost(args []string) error {
 	if err != nil {
 		return err
 	}
-	err = state.Save()
+	err = state.Save(env)
 	return err
 }
 
-func ProcessApp(args []string) error {
+func ProcessApp(args []string, envFiles []string) error {
 	action := args[1]
 	log.Printf("Action: %s", action)
 	appName := args[2]
@@ -60,8 +69,16 @@ func ProcessApp(args []string) error {
 	envName := args[3]
 	log.Printf("Env: %s", envName)
 
+	env, err := LoadEnv(envFiles)
+	if err != nil {
+		return err
+	}
+	if env["UBER_HOME"] != "" {
+		os.Setenv("UBER_HOME", env["UBER_HOME"])
+	}
+
 	state := new(config.State)
-	state.Load()
+	state.Load(env)
 
 	app, err := LoadApp(appName, state)
 	if err != nil {
@@ -85,7 +102,7 @@ func ProcessApp(args []string) error {
 		if err != nil {
 			return err
 		}
-		err = provider.StartApp(app, envName, nil)
+		err = provider.StartApp(app, envName, env)
 		if err != nil {
 			return err
 		}
@@ -99,6 +116,6 @@ func ProcessApp(args []string) error {
 	default:
 		log.Printf("Unknown action:", action)
 	}
-	err = state.Save()
+	err = state.Save(env)
 	return err
 }

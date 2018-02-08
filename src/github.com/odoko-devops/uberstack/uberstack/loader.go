@@ -140,3 +140,14 @@ func LoadApp(filename string, state *config.State) (config.App, error) {
 	}
 	return app, nil
 }
+
+func LoadEnv(filenames []string) (config.ExecutionEnvironment, error) {
+	env := config.ExecutionEnvironment{}
+	for _, filename := range filenames {
+		err := utils.ReadYamlFile(filename, &env)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return env, nil
+}

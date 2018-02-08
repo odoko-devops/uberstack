@@ -49,14 +49,17 @@ func (p *TerraformHostProvider) LoadHost(filename string) (config.Host, error) {
 	return host, nil
 }
 
-func (p *TerraformHostProvider) CreateHost(h config.Host) (map[string]string, map[string]string, error) {
+func (p *TerraformHostProvider) CreateHost(h config.Host, env config.ExecutionEnvironment) (map[string]string, map[string]string, error) {
 	host := h.(*TerraformHost)
 
-	err := host.ConfirmRequired(nil)
+	err := host.ConfirmRequired(env)
 	if err != nil {
 		return nil, nil, err
 	}
 
+	for k, v := range env {
+		log.Printf("ENV %s=%s", k, v)
+	}
 	filepath, err := utils.Resolve(p.TerraformDirectory, false)
 	if err != nil {
 		return nil, nil, err
@@ -71,12 +74,11 @@ func (p *TerraformHostProvider) CreateHost(h config.Host) (map[string]string, ma
 	}
 	targets := strings.Join(resourceTargets, " ")
 
-	env := config.ExecutionEnvironment{}
 	for k, v := range p.Variables {
-		env["TF_VAR_" + k]= os.ExpandEnv(v)
+		env["TF_VAR_" + k]= p.Resolve(v, env)
 	}
 	for k, v := range host.Variables {
-		env["TF_VAR_" + k]= os.ExpandEnv(v)
+		env["TF_VAR_" + k]= p.Resolve(v, env)
 	}
 
 	outputList := make([]string, len(p.Outputs))
@@ -94,13 +96,6 @@ func (p *TerraformHostProvider) CreateHost(h config.Host) (map[string]string, ma
 		return nil, nil, err
 	}
 
-	if p.InstallDocker {
-		err = p.InstallDockerOnHost(*host, p.SshUser)
-		if err != nil {
-			return nil, nil, err
-		}
-	}
-
 	resolvedOutputs := map[string]string{}
 	for _, output := range outputList {
 		command := fmt.Sprintf("terraform output %s", output)
@@ -108,6 +103,9 @@ func (p *TerraformHostProvider) CreateHost(h config.Host) (map[string]string, ma
 		if err != nil {
 			return nil, nil, err
 		}
+		key := fmt.Sprintf("host.%s.%s", host.GetHostName(), output)
+		log.Printf("Resolved %s to %s", key, resolvedOutputs[output])
+		env[output] = resolvedOutputs[key]
 	}
 	resolvedHostOutputs := map[string]string{}
 	for _, output := range hostOutputList {
@@ -116,12 +114,22 @@ func (p *TerraformHostProvider) CreateHost(h config.Host) (map[string]string, ma
 		if err != nil {
 			return nil, nil, err
 		}
+		key := fmt.Sprintf("host.%s.%s", host.GetHostName(), output)
+		log.Printf("Resolved %s to %s", key, resolvedHostOutputs[output])
+		env[output] = resolvedHostOutputs[key]
+	}
+
+	if p.InstallDocker {
+		err = p.InstallDockerOnHost(*host, p.SshUser, env)
+		if err != nil {
+			return nil, nil, err
+		}
 	}
 
 	return resolvedOutputs, resolvedHostOutputs, nil
 }
 
-func (p *TerraformHostProvider) InstallDockerOnHost(host TerraformHost, sshUser string) error {
+func (p *TerraformHostProvider) InstallDockerOnHost(host TerraformHost, sshUser string, env config.ExecutionEnvironment) error {
 	var command string
 
 	switch sshUser {
@@ -142,7 +150,8 @@ func (p *TerraformHostProvider) InstallDockerOnHost(host TerraformHost, sshUser 
 		return fmt.Errorf("Unknown Docker installation user: %s", sshUser)
 	}
 	log.Println("Installing docker on", host.GetName())
-	_, err := p.Execute(&host, command, nil)
+	log.Println(env)
+	_, err := p.Execute(&host, command, env)
 	return err
 }
 

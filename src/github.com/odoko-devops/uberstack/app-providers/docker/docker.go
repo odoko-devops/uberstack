@@ -118,7 +118,7 @@ func (p *DockerAppProvider) StartApp(a config.App, envName string, env config.Ex
 			}
 			provider := app.Host.GetHostProvider()
 			compose := provider.Resolve(string(composeBytes), env)
-			err = provider.UploadScript(app.Host, compose, "/tmp/docker-compose.yml")
+			err = provider.UploadScript(app.Host, compose, "/tmp/docker-compose.yml", env)
 			if err != nil {
 				return err
 			}

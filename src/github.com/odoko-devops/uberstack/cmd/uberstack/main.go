@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"flag"
-	u "github.com/odoko-devops/uberstack/uberstack"
+	"github.com/odoko-devops/uberstack/uberstack"
 )
 
 /*
@@ -20,17 +20,33 @@ import (
 	  uberstack app up myapp dev
  */
 
+type EnvFiles []string
+
+func (e *EnvFiles) String() string {
+	return "STUFF"
+}
+
+func (e *EnvFiles) Set(value string) error {
+	*e = append(*e, value)
+	return nil
+}
+
 func main() {
+	var envFiles EnvFiles
+
+	flag.Var(&envFiles, "e", "Environment variable file to use")
+
 	flag.Parse()
+
 	actionType := flag.Arg(0)
 	switch actionType {
 	case "host":
-		err := u.ProcessHost(flag.Args())
+		err := uberstack.ProcessHost(flag.Args(), envFiles)
 		if err != nil {
 			fmt.Println(err)
 		}
 	case "app":
-		err := u.ProcessApp(flag.Args())
+		err := uberstack.ProcessApp(flag.Args(), envFiles)
 		if err != nil {
 			fmt.Println(err)
 		}

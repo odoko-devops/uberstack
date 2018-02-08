@@ -57,7 +57,7 @@ sudo cat /var/run/udhcpc.eth1.pid | xargs sudo kill
 sudo ifconfig eth1 $$(cat /etc/ip.cfg) up
 `
 
-func (p *VirtualBoxHostProvider) CreateHost(h config.Host) (map[string]string, map[string]string, error) {
+func (p *VirtualBoxHostProvider) CreateHost(h config.Host, env config.ExecutionEnvironment) (map[string]string, map[string]string, error) {
 	host := h.(*VirtualBoxHost)
 
 	image := p.Boot2DockerImage
@@ -76,7 +76,6 @@ func (p *VirtualBoxHostProvider) CreateHost(h config.Host) (map[string]string, m
 		return nil, nil, err
 	}
 
-	env := config.ExecutionEnvironment{}
 	env["IP"] = host.Ip
 	env["NETMASK"] = p.Netmask
 	env["BROADCAST"] = p.Broadcast
