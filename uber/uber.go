@@ -158,10 +158,10 @@ func (u *Uber) Execute() error {
 func (u *Uber) executeService(service Service) error {
 	logrus.Debug("executeService", service)
 	args := []string{}
+	args = append(args, "--debug")
 	args = append(args, u.Action)
 	args = append(args, u.ActionArguments...)
 	args = append(args, "-s", service.Stack)
-	args = append(args, "-e", "uber.conf")
 	args = append(args, "-f", service.getComposePath("docker-compose.yml"))
 	args = append(args, "--rancher-file", service.getComposePath("rancher-compose.yml"))
 	args = append(args, "-d")
