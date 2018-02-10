@@ -73,6 +73,7 @@ func mainErr() error {
 	}
 	app.Commands = []cli.Command{
 		cmd.UpgradeCommand(),
+		cmd.ConfirmCommand(),
 	}
 	parsed, err := parseArgs(os.Args)
 	if err != nil {
